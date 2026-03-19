@@ -1,0 +1,32 @@
+---
+title: debug_getRawReceipts | Tempo
+openapi: /openapi/tempo_node_api/debug_and_trace/debug_getRawReceipts.json POST /
+---
+
+Tempo API method that returns the RLP-encoded transaction receipts for a given block.
+
+<Check>
+**Get your own node endpoint today**
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Parameters
+
+* `blockParameter` — the block number (hex) or tag (`latest`, `earliest`, `pending`)
+
+## Response
+
+* `result` — an array of RLP-encoded transaction receipts as hex strings.
+
+## `debug_getRawReceipts` code examples
+
+<CodeGroup>
+```bash cURL
+curl -X POST "CHAINSTACK_NODE_URL" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "method": "debug_getRawReceipts", "params": ["latest"], "id": 1}'
+```
+</CodeGroup>

@@ -21,9 +21,9 @@ You can sign up with your GitHub, X, Google, or Microsoft account.
 
 ## Prerequisites
 
-- A Tempo Testnet (Moderato) node deployed on [Chainstack](https://console.chainstack.com/)
+- A Tempo node deployed on [Chainstack](https://console.chainstack.com/) (mainnet or testnet)
 - Basic command-line knowledge
-- A wallet with a private key for testnet
+- A wallet with a private key
 
 ## Deploy a Tempo node
 
@@ -46,14 +46,26 @@ Tempo features an enshrined DEX—a precompiled contract built into the protocol
 | BetaUSD | `0x20C0000000000000000000000000000000000002` |
 | ThetaUSD | `0x20C0000000000000000000000000000000000003` |
 
-### Testnet configuration
+### Network configuration
 
+<Tabs>
+  <Tab title="Mainnet">
+| Parameter | Value |
+|-----------|-------|
+| Network name | Tempo Mainnet |
+| Chain ID | `4217` |
+| RPC URL | `YOUR_CHAINSTACK_ENDPOINT` |
+| Explorer | [explore.mainnet.tempo.xyz](https://explore.mainnet.tempo.xyz) |
+  </Tab>
+  <Tab title="Testnet">
 | Parameter | Value |
 |-----------|-------|
 | Network name | Tempo Testnet (Moderato) |
 | Chain ID | `42431` |
 | RPC URL | `YOUR_CHAINSTACK_ENDPOINT` |
 | Explorer | [explore.tempo.xyz](https://explore.tempo.xyz) |
+  </Tab>
+</Tabs>
 
 ## Step 1. Install tempo-foundry
 
@@ -73,15 +85,17 @@ You should see version information including `-tempo`, indicating you are using 
 
 ## Step 2. Fund your wallet
 
-Get testnet stablecoins using the faucet RPC method. The faucet is only available on the public Tempo RPC:
+<Note>
+The faucet is only available on Tempo testnet. On mainnet, acquire stablecoins from issuers or ecosystem partners.
+</Note>
+
+Get testnet stablecoins using the faucet RPC method on the public Tempo RPC:
 
 ```bash
 cast rpc tempo_fundAddress YOUR_ADDRESS --rpc-url https://rpc.moderato.tempo.xyz
 ```
 
-<Note>
-The faucet method `tempo_fundAddress` is only available on the public RPC endpoint. After receiving tokens, use your Chainstack endpoint for all other operations.
-</Note>
+After receiving tokens, use your Chainstack endpoint for all other operations.
 
 Check your balance using your Chainstack endpoint:
 

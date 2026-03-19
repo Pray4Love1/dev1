@@ -1,10 +1,10 @@
 ---
 title: "Tempo tooling"
-description: "Tempo blockchain development tools guide. Connect using MetaMask, Viem, Wagmi, tempo-foundry, Hardhat, ethers.js, web3.py, and Remix IDE for smart contract deployment."
+description: "Tempo blockchain development tools guide. Connect using MetaMask, Viem, Wagmi, tempo-foundry, pytempo, tempo-go, tempo-alloy, Hardhat, ethers.js, web3.py, and Remix IDE."
 ---
 
 <Note>
-**Stablecoin gas fees**: Tempo has no native gas token. Transaction fees are paid in TIP-20 stablecoins (like pathUSD or AlphaUSD). When using development tools, you'll need testnet stablecoins from the [faucet](/reference/tempo-tempo-fundaddress).
+**Stablecoin gas fees**: Tempo has no native gas token. Transaction fees are paid in TIP-20 stablecoins (like pathUSD). When developing on testnet, get stablecoins from the [faucet](/reference/tempo-tempo-fundaddress). On mainnet, acquire stablecoins from issuers or ecosystem partners.
 </Note>
 
 ## MetaMask
@@ -12,6 +12,16 @@ description: "Tempo blockchain development tools guide. Connect using MetaMask, 
 On [node access details](/docs/manage-your-node#view-node-access-and-credentials), click **Connect wallet** to inject your Chainstack endpoint automatically.
 
 If you need to add the network manually, use:
+
+**Mainnet:**
+
+* Network name: `Tempo Mainnet`
+* RPC URL: your Chainstack HTTPS endpoint
+* Chain ID: `4217`
+* Currency symbol: `USD`
+* Block explorer URL: `https://explore.mainnet.tempo.xyz`
+
+**Testnet:**
 
 * Network name: `Tempo Testnet (Moderato)`
 * RPC URL: your Chainstack HTTPS endpoint
@@ -27,7 +37,9 @@ Refer to [node access details](/docs/manage-your-node#view-node-access-and-crede
 MetaMask may show an unusually high balance for the native token. This is expected—Tempo has no native gas token, and wallets see a placeholder value. Fees are paid in TIP-20 stablecoins denominated in USD. Check your stablecoin balances by adding the token addresses to MetaMask.
 </Tip>
 
-### Testnet stablecoin addresses
+### Stablecoin addresses
+
+These addresses are the same on both mainnet and testnet:
 
 | Token | Address |
 |-------|---------|
@@ -91,14 +103,15 @@ where
 * PASSWORD — the password to your node if you use a password-protected endpoint
 * HOSTNAME — the host name of your node
 
-Tempo network ID:
+Tempo network IDs:
 
+* Mainnet: `4217`
 * Moderato Testnet: `42431`
 
 See also [node access details](/docs/manage-your-node#view-node-access-and-credentials).
 
 <Note>
-web3.py works for basic JSON-RPC operations but does not support Tempo's native `feeToken` parameter. For transactions, Tempo uses a cascading fee algorithm that defaults to pathUSD for non-TIP20 contract interactions. For full Tempo Transaction support, use [Viem](#viem) (TypeScript) or [tempo-foundry](#tempo-foundry) (CLI).
+web3.py works for basic JSON-RPC operations but does not support Tempo's native `feeToken` parameter. For full Tempo Transaction support in Python, use [pytempo](#pytempo) instead. For TypeScript, use [Viem](#viem).
 </Note>
 
 ## ethers.js
@@ -113,12 +126,23 @@ Build DApps using [ethers.js](https://github.com/ethers-io/ethers.js/) and Tempo
 Use the `JsonRpcProvider` object to connect to your node endpoint and get the latest block number:
 
 <CodeGroup>
-  ```javascript Key protected
+  ```javascript Mainnet
+  const { ethers } = require("ethers");
+
+  const provider = new ethers.JsonRpcProvider("YOUR_CHAINSTACK_ENDPOINT", {
+    chainId: 4217,
+    name: "tempo"
+  });
+
+  provider.getBlockNumber().then(console.log);
+  ```
+
+  ```javascript Testnet
   const { ethers } = require("ethers");
 
   const provider = new ethers.JsonRpcProvider("YOUR_CHAINSTACK_ENDPOINT", {
     chainId: 42431,
-    name: "tempo"
+    name: "tempo-testnet"
   });
 
   provider.getBlockNumber().then(console.log);
@@ -130,11 +154,11 @@ Use the `JsonRpcProvider` object to connect to your node endpoint and get the la
 Use the `WebSocketProvider` to connect over WebSocket. WebSocket connections enable subscriptions for real-time events like new blocks and pending transactions.
 
 <CodeGroup>
-  ```javascript Key protected
+  ```javascript Mainnet
   const { ethers } = require("ethers");
 
   const provider = new ethers.WebSocketProvider("YOUR_CHAINSTACK_WSS_ENDPOINT", {
-    chainId: 42431,
+    chainId: 4217,
     name: "tempo"
   });
 
@@ -172,22 +196,46 @@ npm install viem
 2. Create a client configured for Tempo:
 
 <CodeGroup>
-  ```typescript Tempo client
+  ```typescript Mainnet
   import { createPublicClient, createWalletClient, http } from 'viem'
   import { privateKeyToAccount } from 'viem/accounts'
-  import { tempoTestnet } from 'viem/chains'
+  import { tempo as tempoChain } from 'viem/chains'
   import { tempo } from 'viem/tempo'
 
   // Public client for read operations
   const publicClient = createPublicClient({
-    chain: tempoTestnet,
+    chain: tempoChain,
     transport: http('YOUR_CHAINSTACK_ENDPOINT'),
   }).extend(tempo())
 
   // Wallet client for transactions
   const walletClient = createWalletClient({
     account: privateKeyToAccount('YOUR_PRIVATE_KEY'),
-    chain: tempoTestnet,
+    chain: tempoChain,
+    transport: http('YOUR_CHAINSTACK_ENDPOINT'),
+  }).extend(tempo())
+
+  // Get block number
+  const blockNumber = await publicClient.getBlockNumber()
+  console.log(blockNumber)
+  ```
+
+  ```typescript Testnet
+  import { createPublicClient, createWalletClient, http } from 'viem'
+  import { privateKeyToAccount } from 'viem/accounts'
+  import { tempoModerato } from 'viem/chains'
+  import { tempo } from 'viem/tempo'
+
+  // Public client for read operations
+  const publicClient = createPublicClient({
+    chain: tempoModerato,
+    transport: http('YOUR_CHAINSTACK_ENDPOINT'),
+  }).extend(tempo())
+
+  // Wallet client for transactions
+  const walletClient = createWalletClient({
+    account: privateKeyToAccount('YOUR_PRIVATE_KEY'),
+    chain: tempoModerato,
     transport: http('YOUR_CHAINSTACK_ENDPOINT'),
   }).extend(tempo())
 
@@ -202,18 +250,22 @@ where
 * YOUR\_CHAINSTACK\_ENDPOINT — your node HTTPS endpoint protected either with the key or password
 * YOUR\_PRIVATE\_KEY — the private key of your account (with `0x` prefix)
 
+<Note>
+Use `tempoModerato` for the active testnet (chain ID 42431). The `tempoTestnet` export points to the deprecated Andantino testnet (chain ID 42429).
+</Note>
+
 ### WebSocket
 
 Use the `webSocket` transport for real-time subscriptions:
 
 <CodeGroup>
-  ```typescript WebSocket client
+  ```typescript Mainnet
   import { createPublicClient, webSocket } from 'viem'
-  import { tempoTestnet } from 'viem/chains'
+  import { tempo as tempoChain } from 'viem/chains'
   import { tempo } from 'viem/tempo'
 
   const publicClient = createPublicClient({
-    chain: tempoTestnet,
+    chain: tempoChain,
     transport: webSocket('YOUR_CHAINSTACK_WSS_ENDPOINT'),
   }).extend(tempo())
 
@@ -223,9 +275,24 @@ Use the `webSocket` transport for real-time subscriptions:
       console.log('New block:', block.number)
     },
   })
+  ```
 
-  // To stop watching
-  // unwatch()
+  ```typescript Testnet
+  import { createPublicClient, webSocket } from 'viem'
+  import { tempoModerato } from 'viem/chains'
+  import { tempo } from 'viem/tempo'
+
+  const publicClient = createPublicClient({
+    chain: tempoModerato,
+    transport: webSocket('YOUR_CHAINSTACK_WSS_ENDPOINT'),
+  }).extend(tempo())
+
+  // Subscribe to new blocks
+  const unwatch = publicClient.watchBlocks({
+    onBlock: (block) => {
+      console.log('New block:', block.number)
+    },
+  })
   ```
 </CodeGroup>
 
@@ -282,26 +349,26 @@ npm install wagmi viem @tanstack/react-query
 2. Configure Wagmi with Tempo:
 
 <CodeGroup>
-  ```typescript HTTP transport
+  ```typescript Mainnet
   import { http, createConfig } from 'wagmi'
-  import { tempoTestnet } from 'wagmi/chains'
+  import { tempo } from 'wagmi/chains'
 
   export const config = createConfig({
-    chains: [tempoTestnet],
+    chains: [tempo],
     transports: {
-      [tempoTestnet.id]: http('YOUR_CHAINSTACK_ENDPOINT'),
+      [tempo.id]: http('YOUR_CHAINSTACK_ENDPOINT'),
     },
   })
   ```
 
-  ```typescript WebSocket transport
-  import { webSocket, createConfig } from 'wagmi'
-  import { tempoTestnet } from 'wagmi/chains'
+  ```typescript Testnet
+  import { http, createConfig } from 'wagmi'
+  import { tempoModerato } from 'wagmi/chains'
 
   export const config = createConfig({
-    chains: [tempoTestnet],
+    chains: [tempoModerato],
     transports: {
-      [tempoTestnet.id]: webSocket('YOUR_CHAINSTACK_WSS_ENDPOINT'),
+      [tempoModerato.id]: http('YOUR_CHAINSTACK_ENDPOINT'),
     },
   })
   ```
@@ -359,6 +426,11 @@ Configure [Hardhat](https://hardhat.org/) to deploy contracts and interact throu
      module.exports = {
        solidity: "0.8.26",
        networks: {
+         tempo: {
+           url: "YOUR_CHAINSTACK_ENDPOINT",
+           chainId: 4217,
+           accounts: ["YOUR_PRIVATE_KEY"]
+         },
          tempoTestnet: {
            url: "YOUR_CHAINSTACK_ENDPOINT",
            chainId: 42431,
@@ -374,7 +446,7 @@ Configure [Hardhat](https://hardhat.org/) to deploy contracts and interact throu
    * YOUR\_CHAINSTACK\_ENDPOINT — your node HTTPS endpoint protected either with the key or password. See [node access details](/docs/manage-your-node#view-node-access-and-credentials).
    * YOUR\_PRIVATE\_KEY — the private key of the account that you use to deploy the contract
 
-3. Run `npx hardhat run scripts/deploy.js --network tempoTestnet` and Hardhat will deploy using Chainstack.
+3. Run `npx hardhat run scripts/deploy.js --network tempo` (or `--network tempoTestnet` for testnet) and Hardhat will deploy using Chainstack.
 
 <Warning>
 Hardhat's default gas estimation may not work correctly with Tempo's stablecoin fee model. For contract deployments, consider using tempo-foundry instead, which has native support for stablecoin gas payments.
@@ -395,15 +467,17 @@ Remix IDE uses standard EVM transactions and does not support Tempo's `feeToken`
 
 ## tempo-foundry
 
-Tempo has a custom Foundry fork with native support for stablecoin gas fees via the `--fee-token` flag.
+Tempo has a [custom Foundry fork](https://github.com/tempoxyz/foundry) with native support for Tempo Transactions, including stablecoin gas fees via the `--tempo.fee-token` flag.
 
 ### Installation
 
-Install tempo-foundry:
+Install tempo-foundry using the standard `foundryup` installer with the `-n tempo` flag:
 
 ```bash
 foundryup -n tempo
 ```
+
+This installs the latest nightly release of all precompiled binaries: `forge`, `cast`, `anvil`, and `chisel`.
 
 Verify the installation:
 
@@ -417,6 +491,16 @@ You should see version information including `-tempo`, indicating you are using 
 # forge <version>-tempo (<commit> <timestamp>)
 ```
 
+### Create a new project
+
+Initialize a new project with Tempo support:
+
+```bash
+forge init -n tempo my-project && cd my-project
+```
+
+Each new project is configured for Tempo out of the box with `tempo-std`, the Tempo standard library, which contains helpers for Tempo's protocol-level features.
+
 ### Forge
 
 Use `forge` to develop, test, and deploy your smart contracts.
@@ -426,20 +510,34 @@ To deploy a contract:
 <CodeGroup>
   ```shell Shell
   forge create src/MyContract.sol:MyContract \
-    --private-key YOUR_PRIVATE_KEY \
     --rpc-url YOUR_CHAINSTACK_ENDPOINT \
-    --fee-token 0x20c0000000000000000000000000000000000001 \
-    --broadcast
+    --interactive \
+    --broadcast \
+    --verify
+  ```
+</CodeGroup>
+
+To deploy with a specific fee token:
+
+<CodeGroup>
+  ```shell Shell
+  forge create src/MyContract.sol:MyContract \
+    --tempo.fee-token 0x20c0000000000000000000000000000000000001 \
+    --rpc-url YOUR_CHAINSTACK_ENDPOINT \
+    --interactive \
+    --broadcast \
+    --verify
   ```
 </CodeGroup>
 
 where
 
 * `src/MyContract.sol:MyContract` — path to your contract file and the contract name
-* YOUR\_PRIVATE\_KEY — the private key to your funded account that you will use to deploy the contract
 * YOUR\_CHAINSTACK\_ENDPOINT — your node HTTPS endpoint protected either with the key or password
-* `--fee-token` — the TIP-20 token address to pay gas fees (AlphaUSD in this example)
+* `--tempo.fee-token` — the TIP-20 token address to pay gas fees (AlphaUSD in this example)
+* `--interactive` — prompts for your private key instead of passing it on the command line
 * `--broadcast` — broadcasts the transaction to the network
+* `--verify` — verifies the contract on [contracts.tempo.xyz](https://contracts.tempo.xyz) (Sourcify-compatible)
 
 ### Cast
 
@@ -453,7 +551,7 @@ To get the latest block number:
   ```
 </CodeGroup>
 
-To send a transaction (requires `--fee-token`):
+To send a transaction with a fee token:
 
 <CodeGroup>
   ```shell Shell
@@ -461,15 +559,252 @@ To send a transaction (requires `--fee-token`):
     "functionName(args)" \
     --private-key YOUR_PRIVATE_KEY \
     --rpc-url YOUR_CHAINSTACK_ENDPOINT \
-    --fee-token 0x20c0000000000000000000000000000000000001
+    --tempo.fee-token 0x20c0000000000000000000000000000000000001
   ```
 </CodeGroup>
 
 where YOUR\_CHAINSTACK\_ENDPOINT is your node HTTPS endpoint protected either with the key or password.
 
+### Solidity integration with tempo-std
+
+Import protocol interfaces from `tempo-std` in your Solidity contracts:
+
+```bash
+forge install tempoxyz/tempo-std
+```
+
+```solidity
+import {IStablecoinExchange} from "tempo-std/interfaces/IStablecoinExchange.sol";
+
+IStablecoinExchange constant DEX = IStablecoinExchange(0xDEc0000000000000000000000000000000000000);
+
+// Approve first, then:
+uint128 amountOut = DEX.swapExactAmountIn(tokenIn, tokenOut, amountIn, minAmountOut);
+```
+
+See also [Foundry for Tempo documentation](https://docs.tempo.xyz/sdk/foundry).
+
+## pytempo
+
+[pytempo](https://pypi.org/project/pytempo/) is Tempo's native Python SDK, built as a web3.py extension. It adds support for Tempo Transactions, including call batching, fee token selection, fee sponsorship, and access key management.
+
+### Installation
+
+```bash
+pip install pytempo
+```
+
+Requires Python 3.9 or higher and web3.py 7.0+.
+
+### Connect to Tempo
+
+```python
+from web3 import Web3
+
+w3 = Web3(Web3.HTTPProvider("YOUR_CHAINSTACK_ENDPOINT"))
+print(f"Connected to Tempo at block {w3.eth.block_number}")
+```
+
+### Send a Tempo Transaction
+
+Build and send a transaction using the `TempoTransaction` class:
+
+```python
+import os
+from web3 import Web3
+from pytempo import Call, TempoTransaction
+
+w3 = Web3(Web3.HTTPProvider("YOUR_CHAINSTACK_ENDPOINT"))
+private_key = os.environ["PRIVATE_KEY"]
+account = w3.eth.account.from_key(private_key)
+
+tx = TempoTransaction.create(
+    chain_id=w3.eth.chain_id,
+    gas_limit=100_000,
+    max_fee_per_gas=w3.eth.gas_price * 2,
+    max_priority_fee_per_gas=w3.eth.gas_price,
+    nonce=w3.eth.get_transaction_count(account.address),
+    calls=(
+        Call.create(to="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+    ),
+)
+
+signed_tx = tx.sign(private_key)
+tx_hash = w3.eth.send_raw_transaction(signed_tx.encode())
+receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+print(f"Transaction hash: {tx_hash.hex()}")
+```
+
+### Pay fees in a stablecoin
+
+Specify a fee token so users pay gas in any supported stablecoin:
+
+```python
+tx = TempoTransaction.create(
+    chain_id=w3.eth.chain_id,
+    gas_limit=100_000,
+    max_fee_per_gas=w3.eth.gas_price * 2,
+    max_priority_fee_per_gas=w3.eth.gas_price,
+    nonce=w3.eth.get_transaction_count(account.address),
+    fee_token="0x20c0000000000000000000000000000000000001",  # AlphaUSD
+    calls=(
+        Call.create(to="0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+    ),
+)
+```
+
+### Batch multiple calls
+
+Execute multiple operations atomically in a single transaction:
+
+```python
+tx = TempoTransaction.create(
+    chain_id=w3.eth.chain_id,
+    gas_limit=200_000,
+    max_fee_per_gas=w3.eth.gas_price * 2,
+    max_priority_fee_per_gas=w3.eth.gas_price,
+    nonce=w3.eth.get_transaction_count(account.address),
+    calls=(
+        Call.create(to=token_a.address, data=transfer_data_a),
+        Call.create(to=token_b.address, data=transfer_data_b),
+    ),
+)
+```
+
+See also [pytempo documentation](https://docs.tempo.xyz/sdk/python).
+
+## tempo-go
+
+[tempo-go](https://github.com/tempoxyz/tempo-go) is Tempo's Go SDK for building application clients. It provides packages for RPC communication, transaction signing, and key management.
+
+### Installation
+
+```bash
+go get github.com/tempoxyz/tempo-go@latest
+```
+
+Requires Go 1.21 or higher.
+
+### Connect to Tempo
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/tempoxyz/tempo-go/pkg/client"
+)
+
+func main() {
+    c := client.New("YOUR_CHAINSTACK_ENDPOINT")
+    ctx := context.Background()
+
+    blockNum, _ := c.GetBlockNumber(ctx)
+    fmt.Printf("Connected to Tempo at block %d\n", blockNum)
+}
+```
+
+### Send a Tempo Transaction
+
+Build and send a transaction using the builder pattern:
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "math/big"
+    "github.com/ethereum/go-ethereum/common"
+    "github.com/tempoxyz/tempo-go/pkg/client"
+    "github.com/tempoxyz/tempo-go/pkg/signer"
+    "github.com/tempoxyz/tempo-go/pkg/transaction"
+)
+
+func main() {
+    c := client.New("YOUR_CHAINSTACK_ENDPOINT")
+    s, _ := signer.NewSigner("YOUR_PRIVATE_KEY")
+    ctx := context.Background()
+
+    nonce, _ := c.GetTransactionCount(ctx, s.Address().Hex())
+    recipient := common.HexToAddress("0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
+
+    tx := transaction.NewBuilder(big.NewInt(4217)). // Tempo mainnet
+        SetNonce(nonce).
+        SetGas(100000).
+        SetMaxFeePerGas(big.NewInt(20000000000)).
+        SetMaxPriorityFeePerGas(big.NewInt(1000000000)).
+        AddCall(recipient, big.NewInt(0), []byte{}).
+        Build()
+
+    transaction.SignTransaction(tx, s)
+    serialized, _ := transaction.Serialize(tx, nil)
+    hash, _ := c.SendRawTransaction(ctx, serialized)
+    log.Printf("Transaction hash: %s", hash)
+}
+```
+
+See also [tempo-go documentation](https://docs.tempo.xyz/sdk/go).
+
+## tempo-alloy (Rust)
+
+[tempo-alloy](https://github.com/tempoxyz/tempo) is Tempo's Rust SDK in the form of an Alloy crate. Alloy is a popular Rust crate for interacting with EVM-compatible blockchains.
+
+### Installation
+
+```bash
+cargo add alloy --features providers,transport-http,network tokio --features full
+cargo add tempo-alloy --git https://github.com/tempoxyz/tempo --tag v1.4.2
+```
+
+Requires Rust 1.93.0 or higher.
+
+### Connect to Tempo
+
+Create a provider using the `TempoNetwork` type to enable Tempo-specific features:
+
+```rust
+use alloy::providers::ProviderBuilder;
+use tempo_alloy::TempoNetwork;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let provider = ProviderBuilder::new_with_network::<TempoNetwork>()
+        .connect(&std::env::var("RPC_URL").expect("No RPC URL set"))
+        .await?;
+
+    println!("Provider connected successfully");
+    Ok(())
+}
+```
+
+### Read chain data
+
+```rust
+use alloy::providers::{Provider, ProviderBuilder};
+use tempo_alloy::TempoNetwork;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let provider = ProviderBuilder::new_with_network::<TempoNetwork>()
+        .connect(&std::env::var("RPC_URL").expect("No RPC URL set"))
+        .await?;
+
+    println!("{}", provider.get_block_number().await?);
+    Ok(())
+}
+```
+
+See also [Alloy documentation](https://docs.rs/alloy) and [tempo-alloy documentation](https://docs.tempo.xyz/sdk/rust).
+
 ## Get testnet tokens
 
-Fund your wallet using the `tempo_fundAddress` RPC method. This faucet is only available on the public Tempo RPC:
+<Note>
+The faucet is only available on Tempo testnet. On mainnet, acquire stablecoins from issuers or ecosystem partners.
+</Note>
+
+Fund your wallet using the `tempo_fundAddress` RPC method on the public Tempo RPC:
 
 ```bash
 cast rpc tempo_fundAddress YOUR_ADDRESS --rpc-url https://rpc.moderato.tempo.xyz
@@ -487,4 +822,6 @@ See also [tempo_fundAddress API reference](/reference/tempo-tempo-fundaddress).
 - [Tempo methods](/docs/tempo-methods)
 - [Viem Tempo documentation](https://viem.sh/tempo)
 - [Wagmi Tempo documentation](https://wagmi.sh/tempo)
+- [pytempo on PyPI](https://pypi.org/project/pytempo/)
+- [tempo-go on GitHub](https://github.com/tempoxyz/tempo-go)
 - [Official Tempo documentation](https://docs.tempo.xyz)

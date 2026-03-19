@@ -5,7 +5,7 @@ description: "Start building on Tempo, the blockchain for payments. Use JSON-RPC
 
 ## What is Tempo?
 
-Tempo is a Layer-1 blockchain purpose-built for payments, co-developed by Stripe and Paradigm. It combines EVM compatibility with payment-specific features like stablecoin gas fees, payment lanes, and built-in compliance support.
+Tempo is a Layer-1 blockchain purpose-built for payments. It combines EVM compatibility with payment-specific features like stablecoin gas fees, payment lanes, built-in compliance support, and the Machine Payments Protocol (MPP) for inline HTTP payments.
 
 <Info>
 Tempo is designed for high-throughput payment applications with sub-second finality and the ability to pay transaction fees in stablecoins instead of a volatile native token.
@@ -13,14 +13,29 @@ Tempo is designed for high-throughput payment applications with sub-second final
 
 ### Key features
 
-- **Stablecoin gas fees** — Pay transaction fees in USD stablecoins like USDC, eliminating the need for a volatile gas token
-- **Sub-second finality** — Transactions finalize in approximately 0.5 seconds using Simplex Consensus
+- **Stablecoin gas fees** — Pay transaction fees in USD stablecoins, eliminating the need for a volatile gas token
+- **Sub-second finality** — Transactions finalize in approximately 500 milliseconds using Simplex Consensus
 - **Payment lanes** — Dedicated blockspace ensures payment transactions always have room, even during network congestion
+- **Tempo Transactions** — Custom EIP-2718 transaction type with fee sponsorship, batch calls, 2D nonces, access keys, and scheduled transactions
 - **TIP-20 token standard** — Extended ERC-20 with ISO 20022 memos, compliance hooks, and 6-decimal precision for stablecoins
+- **Machine Payments Protocol (MPP)** — HTTP 402-based inline payments for paid APIs, MCP tools, and agentic commerce
+- **Enshrined stablecoin DEX** — Protocol-level exchange for stablecoin swaps with limit orders and flip orders
 - **EVM compatible** — Deploy Solidity contracts using familiar tools like Foundry, Hardhat, and Remix
 
 ## Network details
 
+<Tabs>
+  <Tab title="Mainnet">
+| Property | Value |
+|----------|-------|
+| Network name | Tempo Mainnet |
+| Chain ID | 4217 (0x1079) |
+| Currency | USD stablecoins (no native token) |
+| Block time | ~0.5 seconds |
+| Finality | Sub-second (Simplex Consensus) |
+| Explorer | [explore.mainnet.tempo.xyz](https://explore.mainnet.tempo.xyz/) |
+  </Tab>
+  <Tab title="Testnet">
 | Property | Value |
 |----------|-------|
 | Network name | Tempo Testnet (Moderato) |
@@ -29,6 +44,8 @@ Tempo is designed for high-throughput payment applications with sub-second final
 | Block time | ~0.5 seconds |
 | Finality | Sub-second (Simplex Consensus) |
 | Explorer | [explore.tempo.xyz](https://explore.tempo.xyz/) |
+  </Tab>
+</Tabs>
 
 ## What is the Tempo API?
 
@@ -42,17 +59,17 @@ Tempo supports all standard Ethereum JSON-RPC methods plus Tempo-specific extens
 
 ## How to start using the Tempo API
 
-To use the Tempo API, you need access to a Tempo RPC node. The public testnet RPC endpoint is:
+To use the Tempo API, you need access to a Tempo RPC node.
 
-```
-https://rpc.moderato.tempo.xyz
-```
+1. [Sign up with Chainstack](https://console.chainstack.com/).
+1. [Deploy a Tempo node](/docs/manage-your-networks#join-a-public-network).
+1. Use your Chainstack endpoint in your applications.
 
-You can use this endpoint directly in your applications to interact with the Tempo blockchain.
+See also [View node access and credentials](/docs/manage-your-node#view-node-access-and-credentials).
 
 ## Predeployed contracts
 
-Tempo includes several predeployed system contracts for payments, tokens, and compliance:
+Tempo includes several predeployed system contracts for payments, tokens, and compliance. These addresses are the same on both mainnet and testnet:
 
 | Contract | Address | Purpose |
 |----------|---------|---------|
@@ -60,12 +77,18 @@ Tempo includes several predeployed system contracts for payments, tokens, and co
 | Fee Manager | `0xfeec000000000000000000000000000000000000` | Handle fee payments and conversions |
 | Stablecoin DEX | `0xdec0000000000000000000000000000000000000` | Enshrined DEX for stablecoin swaps |
 | TIP-403 Registry | `0x403c000000000000000000000000000000000000` | Transfer policy registry for compliance |
-| pathUSD | `0x20c0000000000000000000000000000000000000` | Test stablecoin |
+| pathUSD | `0x20c0000000000000000000000000000000000000` | First stablecoin deployed |
 | Multicall3 | `0xcA11bde05977b3631167028862bE2a173976CA11` | Batch multiple calls |
+| CreateX | `0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed` | Deterministic contract deployment |
+| Permit2 | `0x000000000022d473030f116ddee9f6b43ac78ba3` | Token approvals and transfers |
 
 ## Get testnet tokens
 
-Tempo uses stablecoins for gas fees. To get testnet tokens, use the `tempo_fundAddress` RPC method:
+<Note>
+The faucet is only available on Tempo testnet. On mainnet, acquire stablecoins from issuers or ecosystem partners.
+</Note>
+
+To get testnet tokens, use the `tempo_fundAddress` RPC method on the public Tempo RPC:
 
 ```bash
 curl -X POST https://rpc.moderato.tempo.xyz \
@@ -78,7 +101,7 @@ curl -X POST https://rpc.moderato.tempo.xyz \
   }'
 ```
 
-This funds your address with test stablecoins: pathUSD, AlphaUSD, BetaUSD, and ThetaUSD.
+This funds your address with test stablecoins: pathUSD, AlphaUSD, BetaUSD, and ThetaUSD (1M of each).
 
 ## Important differences from Ethereum
 
@@ -100,6 +123,9 @@ Tempo transaction receipts include additional fields:
 <Info>
 **See also**
 
+- [Tempo tooling](/docs/tempo-tooling)
+- [Tempo: Building your first payment app](/docs/tempo-tutorial-first-payment-app)
+- [Tempo: Basic DEX swap with Foundry](/docs/tempo-tutorial-dex-swap-foundry)
 - [Tempo documentation](https://docs.tempo.xyz/)
 - [Tempo GitHub](https://github.com/tempoxyz/tempo)
 </Info>
