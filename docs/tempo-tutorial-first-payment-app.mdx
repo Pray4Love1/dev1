@@ -24,7 +24,7 @@ A simple payment app that can:
 ## Prerequisites
 
 - Node.js v18 or higher
-- A Tempo Testnet (Moderato) node deployed on [Chainstack](https://console.chainstack.com/)
+- A Tempo node deployed on [Chainstack](https://console.chainstack.com/) (mainnet or testnet)
 - Basic JavaScript/TypeScript knowledge
 
 ## Deploy a Tempo node
@@ -34,8 +34,19 @@ A simple payment app that can:
 
 See also [View node access and credentials](/docs/manage-your-node#view-node-access-and-credentials).
 
-## Tempo testnet details
+## Tempo network details
 
+<Tabs>
+  <Tab title="Mainnet">
+| Property | Value |
+|----------|-------|
+| Network | Tempo Mainnet |
+| Chain ID | 4217 |
+| RPC endpoint | `YOUR_CHAINSTACK_ENDPOINT` |
+| Explorer | [explore.mainnet.tempo.xyz](https://explore.mainnet.tempo.xyz) |
+| Finality | ~0.5 seconds |
+  </Tab>
+  <Tab title="Testnet">
 | Property | Value |
 |----------|-------|
 | Network | Tempo Testnet (Moderato) |
@@ -43,14 +54,16 @@ See also [View node access and credentials](/docs/manage-your-node#view-node-acc
 | RPC endpoint | `YOUR_CHAINSTACK_ENDPOINT` |
 | Explorer | [explore.tempo.xyz](https://explore.tempo.xyz) |
 | Finality | ~0.5 seconds |
+  </Tab>
+</Tabs>
 
 <Note>
 **No native gas token**: Tempo uses USD stablecoins for fees. When you transfer a TIP-20 token, fees are paid in that same token automatically.
 </Note>
 
-## Test tokens
+## Stablecoin tokens
 
-Tempo testnet provides these TIP-20 stablecoins:
+Tempo provides these TIP-20 stablecoins (same addresses on mainnet and testnet):
 
 | Token | Address |
 |-------|---------|
@@ -71,7 +84,11 @@ npm install ethers
 
 ## Get testnet tokens
 
-Fund your wallet using the `tempo_fundAddress` RPC method. This faucet is only available on the public Tempo RPC endpoint:
+<Note>
+The faucet is only available on Tempo testnet. On mainnet, acquire stablecoins from issuers or ecosystem partners.
+</Note>
+
+Fund your testnet wallet using the `tempo_fundAddress` RPC method on the public Tempo RPC:
 
 ```bash
 curl -X POST "https://rpc.moderato.tempo.xyz" \
@@ -84,11 +101,7 @@ curl -X POST "https://rpc.moderato.tempo.xyz" \
   }'
 ```
 
-This provides pathUSD tokens for testing.
-
-<Note>
-The faucet method `tempo_fundAddress` is only available on the public RPC endpoint (`https://rpc.moderato.tempo.xyz`). After receiving tokens, use your Chainstack endpoint for all other operations.
-</Note>
+This provides 1M of each testnet stablecoin. After receiving tokens, use your Chainstack endpoint for all other operations.
 
 ## TIP-20 token interface
 

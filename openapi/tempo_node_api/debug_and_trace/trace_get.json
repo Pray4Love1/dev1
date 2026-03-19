@@ -1,0 +1,86 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "trace_get Tempo example",
+    "version": "1.0.0",
+    "description": "This is an API example for trace_get for Tempo."
+  },
+  "servers": [
+    {
+      "url": "https://tempo-mainnet.core.chainstack.com/c3ce2925b51f1ed18719fe8a23bbdccf"
+    }
+  ],
+  "paths": {
+    "/": {
+      "post": {
+        "tags": [
+          "Debug and trace"
+        ],
+        "summary": "trace_get",
+        "operationId": "tempo-trace-get",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "jsonrpc": {
+                    "type": "string",
+                    "default": "2.0"
+                  },
+                  "method": {
+                    "type": "string",
+                    "default": "trace_get"
+                  },
+                  "params": {
+                    "type": "array",
+                    "items": {},
+                    "default": [
+                      "0x0000000000000000000000000000000000000000000000000000000000000000",
+                      [
+                        "0x0"
+                      ]
+                    ],
+                    "description": "Method parameters"
+                  },
+                  "id": {
+                    "type": "integer",
+                    "default": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jsonrpc": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "integer"
+                    },
+                    "result": {
+                      "description": "Method result"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-readme": {
+    "explorer-enabled": true,
+    "proxy-enabled": true
+  }
+}

@@ -2813,7 +2813,8 @@
               {
                 "group": "Tempo specific | Tempo",
                 "pages": [
-                  "reference/tempo-tempo-fundaddress"
+                  "reference/tempo-tempo-fundaddress",
+                  "reference/tempo-eth-sendrawtransactionsync"
                 ]
               },
               {
@@ -2825,7 +2826,8 @@
                   "reference/tempo-eth-newblockfilter",
                   "reference/tempo-eth-getblockreceipts",
                   "reference/tempo-eth-getblocktransactioncountbyhash",
-                  "reference/tempo-eth-getblocktransactioncountbynumber"
+                  "reference/tempo-eth-getblocktransactioncountbynumber",
+                  "reference/tempo-eth-getunclecountbyblocknumber"
                 ]
               },
               {
@@ -2836,14 +2838,17 @@
                   "reference/tempo-eth-sendrawtransaction",
                   "reference/tempo-eth-call",
                   "reference/tempo-eth-gettransactionbyblockhashandindex",
-                  "reference/tempo-eth-gettransactionbyblocknumberandindex"
+                  "reference/tempo-eth-gettransactionbyblocknumberandindex",
+                  "reference/tempo-eth-createaccesslist"
                 ]
               },
               {
                 "group": "Chain info | Tempo",
                 "pages": [
                   "reference/tempo-eth-chainid",
-                  "reference/tempo-eth-syncing"
+                  "reference/tempo-eth-syncing",
+                  "reference/tempo-eth-protocolversion",
+                  "reference/tempo-eth-accounts"
                 ]
               },
               {
@@ -2852,7 +2857,8 @@
                   "reference/tempo-eth-gasprice",
                   "reference/tempo-eth-estimategas",
                   "reference/tempo-eth-maxpriorityfeepergas",
-                  "reference/tempo-eth-feehistory"
+                  "reference/tempo-eth-feehistory",
+                  "reference/tempo-eth-blobbasefee"
                 ]
               },
               {
@@ -2877,7 +2883,8 @@
                 "group": "Filter handling | Tempo",
                 "pages": [
                   "reference/tempo-eth-getfilterchanges",
-                  "reference/tempo-eth-uninstallfilter"
+                  "reference/tempo-eth-uninstallfilter",
+                  "reference/tempo-eth-newpendingtransactionfilter"
                 ]
               },
               {
@@ -2887,9 +2894,18 @@
                   "reference/tempo-debug-tracecall",
                   "reference/tempo-debug-traceblockbynumber",
                   "reference/tempo-debug-traceblockbyhash",
+                  "reference/tempo-debug-tracecallmany",
+                  "reference/tempo-debug-getbadblocks",
+                  "reference/tempo-debug-getrawblock",
+                  "reference/tempo-debug-getrawheader",
+                  "reference/tempo-debug-getrawreceipts",
+                  "reference/tempo-debug-getrawtransaction",
                   "reference/tempo-trace-block",
                   "reference/tempo-trace-transaction",
                   "reference/tempo-trace-call",
+                  "reference/tempo-trace-callmany",
+                  "reference/tempo-trace-get",
+                  "reference/tempo-trace-rawtransaction",
                   "reference/tempo-trace-filter",
                   "reference/tempo-trace-replayblocktransactions",
                   "reference/tempo-trace-replaytransaction"
