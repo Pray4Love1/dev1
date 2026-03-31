@@ -77,7 +77,7 @@ The following limits are applied:
   - Chainstack Global Network Worldwide `global1` RPS: 100
   - Chainstack Cloud London `lon1` RPS: 100
   - Chainstack Cloud New York City `nyc1` RPS: 100
-- `getProgramAccounts`:
+- [`getProgramAccounts`](/reference/solana-getprogramaccounts) — unfiltered requests to large programs are blocked; always use `dataSize` or `memcmp` filters:
   - Chainstack Global Network `global1` RPS: 3
   - Chainstack Cloud London `lon1` RPS: 10
   - Chainstack Cloud New York City `nyc1` RPS: 3
@@ -100,10 +100,10 @@ The following limits are applied:
 
 ## Solana accounts excluded from indexing
 
-The following Solana accounts are unavailable for querying:
+The following Solana accounts are excluded from the `program-id` secondary index and cannot be queried with [`getProgramAccounts`](/reference/solana-getprogramaccounts). Use [`getTokenAccountsByOwner`](/reference/solana-gettokenaccountsbyowner) instead:
 
-- `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`
-- `kinXdEcpDQeHPEuQnqmUgtYykqKGVFq6CeVX5iAHJq6`
+- `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` — SPL Token Program
+- `kinXdEcpDQeHPEuQnqmUgtYykqKGVFq6CeVX5iAHJq6` — Kin
 
 ## Solana method availability
 
