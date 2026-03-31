@@ -45,7 +45,8 @@
                         "encoding": "jsonParsed",
                         "filters": []
                       }
-                    ]
+                    ],
+                    "description": "Array containing the program public key (base-58 string) and an optional configuration object with encoding, filters, dataSlice, commitment, withContext, and minContextSlot fields."
                   }
                 }
               }

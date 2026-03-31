@@ -9,14 +9,23 @@ openapi: /openapi/solana_node_api/getProgramAccounts.json POST /9de47db917d4f691
 The method is available only on the [paid plans](https://chainstack.com/pricing/).
 </Note>
 
+The Solana `getProgramAccounts` method returns all accounts owned by the provided program public key. This method is useful for retrieving the state of all accounts associated with a specific program — for example, all token accounts for a given mint or all positions in a DeFi protocol.
 
-The example uses Pyth Network Oracle program address.
+<Warning>
+**Filters are required for large programs**
 
-# Solana `getProgramAccounts` method
+Unfiltered `getProgramAccounts` requests to large programs are blocked and return error code `-32602` with the message:
 
-The Solana `getProgramAccounts` method returns all accounts owned by the provided program.
+```
+getProgramAccounts without filters is not supported for this program. Add dataSize or memcmp filters to narrow results.
+```
 
-This method provides detailed information about each account owned by a specific program, including the account's current balance and data. It is useful for retrieving the state of all accounts associated with a specific program.
+Always include at least one `dataSize` or `memcmp` filter. See [Filters](#filters) for details and examples.
+</Warning>
+
+<Note>
+The interactive example uses the Pyth Network Oracle program address with `jsonParsed` encoding and no filters. For large programs like Token-2022, you must add filters — see the [examples below](#examples).
+</Note>
 
 <Check>
 **Get you own node endpoint today**
@@ -26,26 +35,292 @@ This method provides detailed information about each account owned by a specific
 You can sign up with your GitHub, X, Google, or Microsoft account.
 </Check>
 
-
 ## Parameters
 
-* `programId` — the public key of the program to retrieve accounts for.
-* `commitment` — (optional) the level of commitment desired:
-  + `processed` — the node has processed the block and the block may be on a fork.
-  + `confirmed` — the block is confirmed by the cluster as not being on a fork.
-  + `finalized` — the block is finalized by the cluster.
+* `programId` — the base-58 encoded public key of the program to retrieve accounts for.
+* `config` — configuration object containing the following fields. Must be provided even if empty (`{}`):
+  + `commitment` (optional) — the level of commitment desired:
+    - `processed` — the node has processed the block and the block may be on a fork.
+    - `confirmed` — the block is confirmed by the cluster as not being on a fork.
+    - `finalized` — the block is finalized by the cluster.
+  + `encoding` (optional) — the encoding for the returned account data:
+    - `base64` — recommended default. Fast and compact.
+    - `base64+zstd` — base64 with Zstandard compression. Best for large responses.
+    - `jsonParsed` — human-readable JSON. Only available for programs with a registered parser on the node (SPL Token, Stake, Vote). Falls back to `base64` for other programs. Slowest option.
+    - `base58` — legacy encoding. Limited to accounts with data under 129 bytes. Avoid in production.
+  + `filters` (optional) — an array of filter objects to narrow results. Up to 4 filters can be combined. See [Filters](#filters).
+  + `dataSlice` (optional) — limits the returned account data to a specific byte range. When used with `jsonParsed` encoding, `dataSlice` is silently ignored and the response falls back to `base64`:
+    - `offset` — byte offset to start reading from.
+    - `length` — number of bytes to return.
+  + `minContextSlot` (optional) — the minimum slot at which the request can be evaluated.
+  + `withContext` (optional) — when `true`, wraps the response in an `RpcResponse` object that includes the `context` field with the slot number at which the data snapshot was taken.
+
+## Filters
+
+Filters reduce the result set by discarding accounts that don't match before sending the response. They do not eliminate the underlying scan, but they significantly reduce response size and are **required** for large programs on Chainstack.
+
+Two filter types are available:
+
+* `dataSize` — matches accounts whose data is exactly the specified number of bytes. Use this as the first filter to eliminate entire account types in one comparison:
+  ```json
+  { "dataSize": 165 }
+  ```
+  Common sizes:
+  + `165` — SPL Token account
+  + `82` — SPL Token mint
+  + `200` — Stake account
+
+* `memcmp` — compares a sequence of bytes at a specific offset within the account's raw data:
+  ```json
+  {
+    "memcmp": {
+      "offset": 0,
+      "bytes": "So11111111111111111111111111111111111111112"
+    }
+  }
+  ```
+  + `offset` — byte position to start comparing.
+  + `bytes` — base-58 encoded value to match. Decoded length must not exceed 128 bytes.
+
+Combine both filters to narrow results precisely. For example, to find all SPL Token accounts for a specific mint:
+
+```json
+"filters": [
+  { "dataSize": 165 },
+  { "memcmp": { "offset": 0, "bytes": "TOKEN_MINT_ADDRESS" } }
+]
+```
+
+The `dataSize: 165` filter ensures only SPL Token accounts are considered, while the `memcmp` at offset 0 matches the mint address stored in the first 32 bytes of the token account data.
+
+<Note>
+As of Agave 3.1, malformed filters return a hard error instead of being silently ignored. If previously working code starts returning errors after a node upgrade, double-check your filter construction.
+</Note>
 
 ## Response
 
 * `value` — an array of account information objects, each containing:
-  + `pubkey` — the public key of the account.
+  + `pubkey` — the base-58 encoded public key of the account.
   + `account` — the account information:
-    - `lamports` — the account's current balance.
-    - `owner` — the public key of the program that owns the account.
+    - `lamports` — the account's current balance in lamports.
+    - `owner` — the base-58 encoded public key of the program that owns the account.
+    - `data` — the account's data in the requested encoding. When using `dataSlice`, only the specified byte range is returned.
     - `executable` — whether the account is marked as executable.
     - `rentEpoch` — the epoch at which this account will next owe rent.
-    - `data` — the account's data, represented as a base64 string.
+    - `space` — the data size of the account in bytes.
+
+When `withContext: true` is set, the response is wrapped in an `RpcResponse` object:
+
+```json
+{
+  "context": { "slot": 341197053 },
+  "value": [ ... ]
+}
+```
+
+## Examples
+
+### Get all token accounts for a specific mint
+
+The most common use case — find all holders of a token. This example uses `dataSize: 165` (SPL Token account size) and a `memcmp` filter matching the mint address at byte offset 0.
+
+<Note>
+Choose a token with a manageable holder count. High-holder tokens like wSOL or USDC can time out even with filters. For tokens with hundreds of thousands of holders, use the [two-phase fetch pattern](#two-phase-fetch-for-large-result-sets) instead.
+</Note>
+
+<CodeGroup>
+```python Python
+import requests
+
+CHAINSTACK_RPC = "CHAINSTACK_NODE_URL"
+TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+MINT_ADDRESS = "ATLASXmbPQxBUYbxPsV97usA3fPQYEqzQBUHgiFCUsXx"  # ATLAS token
+
+response = requests.post(
+    CHAINSTACK_RPC,
+    json={
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getProgramAccounts",
+        "params": [
+            TOKEN_PROGRAM_ID,
+            {
+                "encoding": "base64",
+                "filters": [
+                    {"dataSize": 165},
+                    {"memcmp": {"offset": 0, "bytes": MINT_ADDRESS}}
+                ]
+            }
+        ]
+    },
+    timeout=120
+)
+
+accounts = response.json().get("result", [])
+print(f"Found {len(accounts)} token accounts")
+```
+
+```javascript JavaScript
+const CHAINSTACK_RPC = "CHAINSTACK_NODE_URL";
+const TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const MINT_ADDRESS = "ATLASXmbPQxBUYbxPsV97usA3fPQYEqzQBUHgiFCUsXx"; // ATLAS token
+
+const response = await fetch(CHAINSTACK_RPC, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "getProgramAccounts",
+    params: [
+      TOKEN_PROGRAM_ID,
+      {
+        encoding: "base64",
+        filters: [
+          { dataSize: 165 },
+          { memcmp: { offset: 0, bytes: MINT_ADDRESS } },
+        ],
+      },
+    ],
+  }),
+});
+
+const { result } = await response.json();
+console.log(`Found ${result.length} token accounts`);
+```
+</CodeGroup>
+
+### Two-phase fetch for large result sets
+
+For programs with many matching accounts, use a two-phase approach: first count accounts with zero-length `dataSlice`, then fetch data in batches using `getMultipleAccounts`.
+
+<CodeGroup>
+```python Python
+import requests
+
+CHAINSTACK_RPC = "CHAINSTACK_NODE_URL"
+TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+MINT_ADDRESS = "ATLASXmbPQxBUYbxPsV97usA3fPQYEqzQBUHgiFCUsXx"
+
+# Phase 1: get pubkeys only (zero-length dataSlice)
+response = requests.post(
+    CHAINSTACK_RPC,
+    json={
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getProgramAccounts",
+        "params": [
+            TOKEN_PROGRAM_ID,
+            {
+                "filters": [
+                    {"dataSize": 165},
+                    {"memcmp": {"offset": 0, "bytes": MINT_ADDRESS}}
+                ],
+                "dataSlice": {"offset": 0, "length": 0}
+            }
+        ]
+    },
+    timeout=60
+)
+
+pubkeys = [item["pubkey"] for item in response.json().get("result", [])]
+print(f"Found {len(pubkeys)} accounts")
+
+# Phase 2: fetch full data in batches of 100 via getMultipleAccounts
+BATCH_SIZE = 100
+for i in range(0, len(pubkeys), BATCH_SIZE):
+    batch = pubkeys[i:i + BATCH_SIZE]
+    response = requests.post(
+        CHAINSTACK_RPC,
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "getMultipleAccounts",
+            "params": [
+                batch,
+                {"encoding": "base64"}
+            ]
+        },
+        timeout=60
+    )
+    accounts = response.json().get("result", {}).get("value", [])
+    print(f"Batch {i // BATCH_SIZE + 1}: fetched {len(accounts)} accounts")
+```
+</CodeGroup>
+
+### Filter by Anchor program discriminator
+
+Anchor programs use an 8-byte discriminator at the start of each account's data to identify the account type. Filter on it with `memcmp` at offset 0.
+
+<CodeGroup>
+```python Python
+import requests
+import hashlib
+
+CHAINSTACK_RPC = "CHAINSTACK_NODE_URL"
+PROGRAM_ID = "YOUR_PROGRAM_ID"
+
+# Anchor discriminator: first 8 bytes of SHA-256("account:<AccountTypeName>")
+discriminator = hashlib.sha256(b"account:UserPosition").digest()[:8]
+
+# Convert to base-58 for the memcmp filter
+import base58
+discriminator_b58 = base58.b58encode(discriminator).decode()
+
+response = requests.post(
+    CHAINSTACK_RPC,
+    json={
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getProgramAccounts",
+        "params": [
+            PROGRAM_ID,
+            {
+                "encoding": "base64",
+                "filters": [
+                    {"memcmp": {"offset": 0, "bytes": discriminator_b58}}
+                ]
+            }
+        ]
+    },
+    timeout=60
+)
+
+accounts = response.json().get("result", [])
+print(f"Found {len(accounts)} UserPosition accounts")
+```
+</CodeGroup>
 
 ## Use case
 
-A practical use case for `getProgramAccounts` is to retrieve the current state of all accounts associated with a specific Solana program. This can be useful for wallets or other applications that need to display or make use of this information.
+A practical use case for `getProgramAccounts` is to retrieve the current state of all accounts associated with a specific Solana program. Common scenarios include:
+
+* Listing all holders of an SPL token by filtering on the Token Program with a `memcmp` on the mint address
+* Retrieving all user positions in a DeFi protocol by filtering on the program's account discriminator
+* Building a local index of program state for analytics or monitoring
+* Tracking account changes over time by combining `getProgramAccounts` with `withContext` for slot-consistent snapshots
+
+For real-time account monitoring, consider [Solana Geyser with Yellowstone gRPC](/docs/solana-listening-for-pump-fun-migrations-to-raydium-using-geyser) as a streaming alternative.
+
+## Performance tips
+
+* Always use filters — `dataSize` as the first filter, then `memcmp` for further narrowing.
+* Prefer `base64` encoding over `jsonParsed` for performance. Only use `jsonParsed` when you need human-readable output and the program has a registered parser.
+* Use `dataSlice` to reduce response size when you only need specific fields from account data.
+* For large result sets, use the [two-phase fetch pattern](#two-phase-fetch-for-large-result-sets) — get pubkeys first, then fetch data in batches with `getMultipleAccounts`.
+* Be mindful of [rate limits](/docs/limits) — `getProgramAccounts` has lower per-method RPS limits than standard calls.
+* Do not call `getProgramAccounts` on the Token Program (`TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`) or Kin (`kinXdEcpDQeHPEuQnqmUgtYykqKGVFq6CeVX5iAHJq6`) directly — these are [excluded from indexing](/docs/limits). Use [`getTokenAccountsByOwner`](/reference/solana-gettokenaccountsbyowner) instead.
+
+## Error reference
+
+Three common errors specific to `getProgramAccounts`:
+
+* **`-32602` — unfiltered request blocked** — returned when calling `getProgramAccounts` without filters on a large program (e.g., Token-2022). Add `dataSize` and/or `memcmp` filters.
+* **`-32010` — program excluded from secondary index** — returned when the program is too large to index (e.g., the Token Program `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`). Use [`getTokenAccountsByOwner`](/reference/solana-gettokenaccountsbyowner) instead.
+* **`500` — missing config object** — returned when the `params` array contains only the program ID without a configuration object. Always pass a config object as the second parameter, even if empty (`{}`).
+
+## Related methods
+
+* [`getTokenAccountsByOwner`](/reference/solana-gettokenaccountsbyowner) — faster alternative when querying SPL Token accounts by wallet address. Uses a dedicated secondary index.
+* [`getMultipleAccounts`](/reference/solana-getmultipleaccounts) — fetch up to 100 accounts by pubkey in a single call. Best combined with `getProgramAccounts` in the two-phase pattern.
+* [`getAccountInfo`](/reference/solana-getaccountinfo) — fetch a single account by pubkey.
