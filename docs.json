@@ -1977,6 +1977,15 @@
                   "reference/base-trace-get",
                   "reference/base-trace-block"
                 ]
+              },
+              {
+                "group": "Subscriptions | Base",
+                "pages": [
+                  "reference/base-subscribe-newflashblocktransactions",
+                  "reference/base-subscribe-pendinglogs",
+                  "reference/base-subscribe-newflashblocks",
+                  "reference/base-unsubscribe"
+                ]
               }
             ]
           },
