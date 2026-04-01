@@ -57,6 +57,24 @@ Add the following configuration to `~/.codeium/windsurf/mcp_config.json`:
 Kiro does not currently support streamable HTTP MCP servers. Support is being tracked in [this feature request](https://github.com/kirodotdev/Kiro/issues/23). Once streamable HTTP support is added, the Chainstack Developer Portal MCP server will be compatible with Kiro.
 </Note>
 
+### Codex
+
+To add the Chainstack MCP server to OpenAI Codex, use the following command:
+
+```
+codex mcp add devportal --url https://docs.chainstack.com/mcp --bearer-token-env-var "DEVPORTAL_TOKEN"
+```
+
+Then set the environment variable to any value:
+
+```
+export DEVPORTAL_TOKEN=public
+```
+
+<Note>
+Codex proactively discovers OAuth metadata on every HTTP MCP connection. Since the Chainstack Developer Portal MCP server is public and requires no authentication, the `bearer-token-env-var` flag tells Codex to skip the OAuth flow and connect directly.
+</Note>
+
 ## Manual configuration
 
 For other AI tools that support streamable HTTP MCP, use the following URL:
