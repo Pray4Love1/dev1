@@ -51,10 +51,22 @@ Add the following configuration to `~/.codeium/windsurf/mcp_config.json`:
 5. Save the configuration and click **"Refresh Servers"** in the Cascade settings
 6. Verify the integration by clicking the Hammer Icon in the Cascade toolbar — the Chainstack documentation search tool should appear
 
-### Kiro
+### Codex
+
+To add the Chainstack MCP server to OpenAI Codex, first set a dummy environment variable:
+
+```bash
+export PASTE_THIS_OR_ANY_DUMMY_TOKEN=paste_this_or_any_dummy_token
+```
+
+Then add the MCP server:
+
+```bash
+codex mcp add devportal --url https://docs.chainstack.com/mcp --bearer-token-env-var "PASTE_THIS_OR_ANY_DUMMY_TOKEN"
+```
 
 <Note>
-Kiro does not currently support streamable HTTP MCP servers. Support is being tracked in [this feature request](https://github.com/kirodotdev/Kiro/issues/23). Once streamable HTTP support is added, the Chainstack Developer Portal MCP server will be compatible with Kiro.
+The Developer Portal MCP server is public and requires no authentication. The dummy token is a workaround for a [known Codex OAuth issue](https://github.com/openai/codex/issues/5588).
 </Note>
 
 ## Manual configuration
