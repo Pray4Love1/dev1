@@ -26,6 +26,11 @@ This two-side architecture implements the following Flashblocks flow:
   * `eth_sendRawTransactionSync`
 * The transaction ordering is done at the Flashblocks level instead of the block level.
 
+Additionally, the following WebSocket subscription methods are available exclusively on Flashblocks-enabled endpoints:
+  * [`eth_subscribe newFlashblockTransactions`](/reference/base-subscribe-newflashblocktransactions) — stream individual transactions as they are pre-confirmed (~200ms each)
+  * [`eth_subscribe pendingLogs`](/reference/base-subscribe-pendinglogs) — stream filtered event logs from pre-confirmed transactions
+  * [`eth_subscribe newFlashblocks`](/reference/base-subscribe-newflashblocks) — stream full Flashblock payload objects from the sequencer
+
 Each 2-second block on the Base chain is formed after 10 different Flashblocks have been processed—each Flashblock with its own transaction ordering.
 
 ## Quick Flashblock vs. full block data comparison
