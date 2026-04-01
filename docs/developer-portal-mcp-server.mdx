@@ -59,20 +59,15 @@ Kiro does not currently support streamable HTTP MCP servers. Support is being tr
 
 ### Codex
 
-To add the Chainstack MCP server to OpenAI Codex, use the following command:
+To add the Chainstack MCP server to OpenAI Codex, use the following commands:
 
-```
-codex mcp add devportal --url https://docs.chainstack.com/mcp --bearer-token-env-var "DEVPORTAL_TOKEN"
-```
-
-Then set the environment variable to any value:
-
-```
-export DEVPORTAL_TOKEN=public
+```bash
+export PASTE_THIS_OR_ANY_DUMMY_TOKEN=paste_this_or_any_dummy_token
+codex mcp add devportal --url https://docs.chainstack.com/mcp --bearer-token-env-var "PASTE_THIS_OR_ANY_DUMMY_TOKEN"
 ```
 
 <Note>
-Codex proactively discovers OAuth metadata on every HTTP MCP connection. Since the Chainstack Developer Portal MCP server is public and requires no authentication, the `bearer-token-env-var` flag tells Codex to skip the OAuth flow and connect directly.
+The Developer Portal MCP server is public and requires no authentication. However, Codex proactively discovers OAuth metadata on every HTTP MCP connection and attempts an OAuth flow that fails. The `bearer-token-env-var` flag with any dummy token value tells Codex to skip the OAuth flow and connect directly.
 </Note>
 
 ## Manual configuration
