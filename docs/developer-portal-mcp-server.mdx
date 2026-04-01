@@ -53,10 +53,15 @@ Add the following configuration to `~/.codeium/windsurf/mcp_config.json`:
 
 ### Codex
 
-To add the Chainstack MCP server to OpenAI Codex, use the following commands:
+To add the Chainstack MCP server to OpenAI Codex, first set a dummy environment variable:
 
 ```bash
 export PASTE_THIS_OR_ANY_DUMMY_TOKEN=paste_this_or_any_dummy_token
+```
+
+Then add the MCP server:
+
+```bash
 codex mcp add devportal --url https://docs.chainstack.com/mcp --bearer-token-env-var "PASTE_THIS_OR_ANY_DUMMY_TOKEN"
 ```
 
