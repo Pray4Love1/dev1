@@ -3710,6 +3710,7 @@
                 "group": "Self-Hosted",
                 "pages": [
                   "docs/self-hosted/introduction",
+                  "docs/self-hosted/evaluation-setup",
                   "docs/self-hosted/supported-clients-and-protocols",
                   "docs/self-hosted/quick-start"
                 ]
