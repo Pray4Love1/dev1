@@ -1,0 +1,66 @@
+---
+title: "Evaluation setup"
+description: "Minimum requirements and quick path to evaluating Chainstack Self-Hosted on modest hardware"
+---
+
+You do not need dedicated server hardware to try Chainstack Self-Hosted. The Control Panel runs comfortably on a laptop, a virtual machine, or a small cloud instance. This page covers the minimum you need to get started.
+
+## What you need
+
+The Control Panel is the management interface where you deploy, monitor, and manage blockchain nodes. It requires very modest resources:
+
+| Resource | Minimum |
+|----------|---------|
+| CPU | 1 core |
+| RAM | 2 GB |
+| Storage | 10 GB |
+
+<Note>
+These are the requirements for the Control Panel only. No blockchain node resources are needed at this stage.
+</Note>
+
+Any of these environments will work:
+
+- A modern laptop or desktop running Linux
+- A virtual machine with 2 GB of RAM
+- A basic cloud instance from any provider
+
+## Software
+
+| Component | Requirement |
+|-----------|-------------|
+| Operating system | Ubuntu 22.04 or 24.04 LTS |
+| Kubernetes | k3s (installed during setup) |
+
+<Note>
+The [quick start guide](/docs/self-hosted/quick-start) walks you through installing k3s and all other required tools. No prior Kubernetes experience is needed.
+</Note>
+
+## What you can evaluate
+
+With just the Control Panel running, you can:
+
+- Explore the Chainstack Self-Hosted web interface and deployment workflow
+- See the available protocols and node configurations
+- Understand how Chainstack Self-Hosted manages infrastructure
+- Plan your production deployment based on hands-on experience with the product
+
+## Get started
+
+1. [Join the beta](https://chainstack.com/self-hosted/) — get access to the installer
+2. [Quick start](/docs/self-hosted/quick-start) — end-to-end walkthrough from a fresh Ubuntu server to a running Control Panel
+3. [System requirements](/docs/self-hosted/requirements) — full hardware specifications for production planning
+
+## Optional — deploy a testnet node
+
+If you want to go a step further and deploy an actual blockchain node, the Ethereum Hoodi testnet is the lightest option available.
+
+| Resource | Control Panel + Hoodi node |
+|----------|---------------------------|
+| CPU | 4 cores |
+| RAM | 16 GB |
+| Storage | 250 GB NVMe SSD |
+
+<Note>
+Hoodi is an Ethereum testnet that uses test ETH with no real value, making it ideal for evaluation. Initial sync takes several hours to a day depending on your hardware.
+</Note>
