@@ -1,0 +1,29 @@
+---
+title: "Chainstack Self-Hosted v1.4.6: April 2026"
+description: "Snapshot bootstrapping, integrated monitoring, cpctl improvements, and more"
+---
+
+This release builds on the v1.0.0 foundation with major additions across installation tooling, node operations, and observability.
+
+## Snapshot-based node bootstrapping
+
+Nodes can now be deployed from a pre-downloaded chain snapshot rather than syncing from genesis. This significantly reduces time-to-live for new nodes on supported networks—from days to hours or minutes depending on chain and snapshot availability.
+
+## Integrated monitoring stack
+
+The Control Panel now ships with an optional, fully integrated observability stack:
+
+- VictoriaMetrics — metrics storage
+- Grafana — dashboards
+- Chainstack blockchain-node-exporter — surfaces chain-specific health signals alongside standard Kubernetes infrastructure metrics
+
+The stack is enabled at install time and requires no additional configuration.
+
+## cpctl improvements
+
+The `cpctl` CLI has been substantially extended:
+
+- **Interactive TUI shell** — `cpctl` now runs as a persistent interactive shell with streaming output, live status tables, progress bars, and health indicators.
+- **One-line install scripts** — available for Linux, macOS, and Windows. Multi-platform binaries (amd64/arm64) are published and installable with a single command.
+- **Shell completion** — `cpctl completion` generates completion scripts for bash, zsh, fish, and PowerShell.
+- **Upgrade command** — `cpctl upgrade` handles in-place Control Panel upgrades with a plan preview, configuration diff, values backup, and an upgrade journal for auditability.
