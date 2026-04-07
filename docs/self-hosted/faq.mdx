@@ -21,11 +21,11 @@ Production readiness is planned for later in 2026.
 
 ## Features and roadmap
 
-### When will snapshot-based deployment be available?
+### Is snapshot-based deployment available?
 
-**Q1 2026** — A proof of concept for deploying nodes from pre-synced snapshots is planned. This will significantly reduce initial sync times from days to hours.
+Snapshot-based deployment is available as of v1.4.6. Nodes can be deployed from a pre-downloaded chain snapshot, reducing initial sync from days to hours. The sync method is presented as an option in the deployment wizard.
 
-Follow the [release notes](/docs/self-hosted/release-notes) for updates.
+See [Deploying nodes](/docs/self-hosted/deploying-nodes) for details.
 
 ### When will you support more protocols?
 
@@ -35,13 +35,9 @@ Planned additions include additional EVM-compatible chains and Layer 2 networks.
 
 **Interested in a specific protocol?** Contact us at [Chainstack Feedback](https://ideas.chainstack.com/en?b=6968ecf76c93cb94db0422c8) with your requirements.
 
-### When will monitoring and observability be available?
+### Is monitoring and observability available?
 
-**Q1 2026** — Monitoring and observability features will be released, starting with basic metrics and health indicators, followed by more sophisticated dashboards with detailed metrics, alerting, and historical data.
-
-### Do you plan to support archive nodes?
-
-**Q1 2026** — A proof of concept for archive node deployment is planned. Archive nodes require significantly more storage (15+ TB) and different sync strategies.
+Monitoring is available as of v1.4.6. The Control Panel ships with an optional integrated observability stack: VictoriaMetrics for metrics storage, Grafana for dashboards, and the Chainstack blockchain-node-exporter for chain-specific health signals. The stack is enabled at install time and requires no additional configuration.
 
 ### Do you plan to support validator nodes?
 
@@ -70,7 +66,7 @@ Chainstack Self-Hosted works with any recent Kubernetes distribution:
 
 **Control Panel only:**
 
-- 2 CPU cores, 2 GB RAM, 4 GB storage
+- 1 CPU core, 4 GB RAM, 10 GB storage
 
 **Control Panel + Ethereum Mainnet node:**
 
@@ -94,9 +90,9 @@ For VMs, ensure the virtual disk is backed by SSD storage, not HDD.
 
 ### How long does initial node sync take?
 
-Expect 2–5 days for Ethereum Mainnet, depending on your hardware and network. See [System requirements](/docs/self-hosted/requirements) for specifications and a community-maintained list of hardware recommendations.
+With standard sync from genesis, expect 2–5 days for Ethereum Mainnet, depending on your hardware and network. With [snapshot-based deployment](/docs/self-hosted/deploying-nodes), this can be reduced to hours or even minutes.
 
-[Snapshot-based deployment](#when-will-snapshot-based-deployment-be-available) will reduce this significantly.
+See [System requirements](/docs/self-hosted/requirements) for specifications and a community-maintained list of hardware recommendations.
 
 ### How to find out the status of the initial node sync?
 
@@ -104,12 +100,12 @@ At the moment, the only option is to check the corresponding pod logs. For examp
 
 ```bash
 # List all pods and find the pods related to the node ID
-kubectl get pods -n control-panel | grep 6244046a-f344-4453-abd5-5bbbc0377422
+kubectl get pods -n control-panel-deployments | grep 6244046a-f344-4453-abd5-5bbbc0377422
 cp-6244046a-f344-4453-abd5-5bbbc0377422-prysm-cb87b4dcc-l9rvp    1/1     Running     2 (4h51m ago)    2d18h
 cp-6244046a-f344-4453-abd5-5bbbc0377422-reth-776c6954fc-p6htz    1/1     Running     107 (127m ago)   2d18h
 
 # Check the log files for the corresponding pod
-kubectl logs -f cp-6244046a-f344-4453-abd5-5bbbc0377422-reth-776c6954fc-p6htz -n control-panel
+kubectl logs -f cp-6244046a-f344-4453-abd5-5bbbc0377422-reth-776c6954fc-p6htz -n control-panel-deployments
 ```
 
 ### What happens if my node crashes?
@@ -128,12 +124,12 @@ Go to **Chainstack Self-Hosted > Nodes > Node details** and copy the Node ID, fo
 <Step title="Find the pods and PVC">
 ```bash
 # Find the pods associated with the deployment
-kubectl get pods -n control-panel | grep 6244046a-f344-4453-abd5-5bbbc0377422
+kubectl get pods -n control-panel-deployments | grep 6244046a-f344-4453-abd5-5bbbc0377422
 cp-6244046a-f344-4453-abd5-5bbbc0377422-prysm-cb87b4dcc-l9rvp    1/1     Running     2 (26h ago)     3d15h
 cp-6244046a-f344-4453-abd5-5bbbc0377422-reth-776c6954fc-p6htz    1/1     Running     125 (61m ago)   3d15h
 
 # Find the corresponding PVC
-kubectl get pvc -n control-panel | grep 6244046a-f344-4453-abd5-5bbbc0377422
+kubectl get pvc -n control-panel-deployments | grep 6244046a-f344-4453-abd5-5bbbc0377422
 cp-6244046a-f344-4453-abd5-5bbbc0377422-prysm   Bound    pvc-b27f6710-8b8b-42ec-a559-6def88edc1d0   100Gi      RWO            topolvm-provisioner   3d15h
 cp-6244046a-f344-4453-abd5-5bbbc0377422-reth    Bound    pvc-6c396c66-ad08-48ce-a60c-b9d188f03228   1300Gi     RWO            topolvm-provisioner   3d15h
 ```
@@ -148,7 +144,7 @@ df -h | grep pvc-6c396c66-ad08-48ce-a60c-b9d188f03228
 
 <Step title="Increase the storage">
 ```bash
-kubectl patch pvc -n control-panel cp-6244046a-f344-4453-abd5-5bbbc0377422-reth \
+kubectl patch pvc -n control-panel-deployments cp-6244046a-f344-4453-abd5-5bbbc0377422-reth \
   -p '{"spec": {"resources": {"requests": {"storage": "1500Gi"}}}}'
 ```
 </Step>

@@ -3,18 +3,46 @@ title: "Uninstallation"
 description: "Remove Chainstack Self-Hosted from your Kubernetes cluster"
 ---
 
-To completely remove Chainstack Self-Hosted:
+<Warning>
+Uninstallation permanently deletes all data including deployed nodes, configuration, and user data. This cannot be undone. Use `--keep-pvcs` if you want to preserve blockchain node data.
+</Warning>
+
+## Basic uninstall
 
 ```bash
 cpctl uninstall
 ```
 
-This will:
+This removes the Helm release and deletes all associated PersistentVolumeClaims. You will be prompted to confirm before anything is deleted.
 
-1. Remove the Helm release
-2. Delete all associated `PersistentVolumeClaims`
-3. **Permanently delete all data**
+## Preserve data
 
-<Warning>
-Uninstallation is destructive. All data including deployed nodes, configuration, and user data will be lost.
-</Warning>
+To remove the Control Panel but keep the blockchain node data on disk:
+
+```bash
+cpctl uninstall --keep-pvcs
+```
+
+This is useful if you plan to reinstall and reattach the existing volumes.
+
+## Preview before deleting
+
+To see what would be deleted without actually deleting anything:
+
+```bash
+cpctl uninstall --dry-run
+```
+
+## Uninstall flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--keep-pvcs` | Preserve PersistentVolumeClaims (blockchain node data) | `false` |
+| `--dry-run` | Preview resources to be deleted without deleting | `false` |
+| `--delete-namespace` | Delete the Control Panel namespace after uninstall | `false` |
+| `--delete-workload-namespace` | Delete the workload namespace after uninstall | `false` |
+| `--workload-namespace` | Workload namespace name | `<namespace>-deployments` |
+| `--force` | Force removal: strip finalizers, kill stuck pods, delete namespace | `false` |
+| `--timeout` | Timeout for the uninstall operation | `5m0s` |
+| `-y, --yes` | Skip confirmation prompts (for automation) | `false` |
+| `--log-file` | Write operations log to a file | — |

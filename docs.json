@@ -3721,6 +3721,8 @@
                   "docs/self-hosted/requirements",
                   "docs/self-hosted/environment-setup",
                   "docs/self-hosted/installation",
+                  "docs/self-hosted/advanced-installation",
+                  "docs/self-hosted/upgrade",
                   "docs/self-hosted/first-login",
                   "docs/self-hosted/uninstallation"
                 ]
@@ -3729,7 +3731,8 @@
                 "group": "Node management",
                 "pages": [
                   "docs/self-hosted/deploying-nodes",
-                  "docs/self-hosted/managing-nodes"
+                  "docs/self-hosted/managing-nodes",
+                  "docs/self-hosted/monitoring"
                 ]
               },
               {

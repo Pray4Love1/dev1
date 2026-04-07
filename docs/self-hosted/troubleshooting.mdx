@@ -234,6 +234,32 @@ kubectl describe nodes | grep -A10 "Allocated resources"
 kubectl logs -l app.kubernetes.io/name=cp-deployments-api -n control-panel
 ```
 
+### Node pod errors
+
+Blockchain node pods run in the `control-panel-deployments` namespace. Use the node ID from **Chainstack Self-Hosted > Nodes > Node details** to find the relevant pods.
+
+#### Check node pod status
+
+```bash
+kubectl get pods -n control-panel-deployments | grep <node-id>
+```
+
+#### Check node pod logs
+
+```bash
+# Execution client (reth)
+kubectl logs -f <pod-name> -n control-panel-deployments
+
+# Previous container logs if crashing
+kubectl logs <pod-name> -n control-panel-deployments --previous
+```
+
+#### Check node PVC status
+
+```bash
+kubectl get pvc -n control-panel-deployments | grep <node-id>
+```
+
 ## System health checks
 
 ### Check all components
@@ -244,17 +270,24 @@ Run this comprehensive health check:
 #!/bin/bash
 echo "=== Checking Control Panel Health ==="
 
-echo -e "\n--- Pod Status ---"
+echo -e "\n--- Pod Status (Control Panel) ---"
 kubectl get pods -n control-panel
+
+echo -e "\n--- Pod Status (Node deployments) ---"
+kubectl get pods -n control-panel-deployments
 
 echo -e "\n--- Services ---"
 kubectl get svc -n control-panel
 
-echo -e "\n--- PVC Status ---"
+echo -e "\n--- PVC Status (Control Panel) ---"
 kubectl get pvc -n control-panel
+
+echo -e "\n--- PVC Status (Node deployments) ---"
+kubectl get pvc -n control-panel-deployments
 
 echo -e "\n--- Recent Events ---"
 kubectl get events -n control-panel --sort-by='.lastTimestamp' | tail -20
+kubectl get events -n control-panel-deployments --sort-by='.lastTimestamp' | tail -20
 ```
 
 ### Check resource usage
@@ -277,6 +310,10 @@ debug=debug-\$timestamp.txt
 for pod in \$(kubectl get pods -n control-panel -o name); do
   echo "=== \$pod ===" >> \$debug
   kubectl logs \$pod -n control-panel --since=1h 2>/dev/null >> \$debug
+done
+for pod in \$(kubectl get pods -n control-panel-deployments -o name); do
+  echo "=== \$pod ===" >> \$debug
+  kubectl logs \$pod -n control-panel-deployments --since=1h 2>/dev/null >> \$debug
 done
 ```
 
@@ -303,7 +340,7 @@ This destroys all data. Only use as last resort.
 cpctl uninstall
 
 # Reinstall
-cpctl install -v v1.0.0
+cpctl install -v v1.4.6
 ```
 
 ### Recover from database issues
@@ -327,12 +364,17 @@ If you cannot resolve an issue, check the [FAQ](/docs/self-hosted/faq) for known
 ```bash
 cpctl status > diagnostic.txt
 kubectl get events -n control-panel >> diagnostic.txt
+kubectl get events -n control-panel-deployments >> diagnostic.txt
 timestamp=\$(date +%s)
 touch debug-\$timestamp.txt
 debug=debug-\$timestamp.txt
 for pod in \$(kubectl get pods -n control-panel -o name); do
   echo "=== \$pod ===" >> \$debug
   kubectl logs \$pod -n control-panel --since=1h 2>/dev/null >> \$debug
+done
+for pod in \$(kubectl get pods -n control-panel-deployments -o name); do
+  echo "=== \$pod ===" >> \$debug
+  kubectl logs \$pod -n control-panel-deployments --since=1h 2>/dev/null >> \$debug
 done
 ```
 
