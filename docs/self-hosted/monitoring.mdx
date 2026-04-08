@@ -1,0 +1,71 @@
+---
+title: "Monitoring"
+description: "Integrated observability stack for Chainstack Self-Hosted"
+---
+
+Chainstack Self-Hosted v1.4.6+ ships with an optional integrated observability stack deployed inside the `control-panel` namespace alongside the Control Panel itself. No additional configuration is required.
+
+## Stack components
+
+| Component | Pod prefix | Purpose |
+|-----------|------------|---------|
+| Grafana | `cp-grafana` | Dashboards and visualization |
+| VictoriaMetrics (single-node) | `vmsingle-cp-victoria-metrics-k8s-stack` | Metrics storage |
+| VMAgent | `vmagent-cp-victoria-metrics-k8s-stack` | Metrics scraping |
+| VMAlertmanager | `vmalertmanager-cp-victoria-metrics-k8s-stack` | Alerting |
+| VictoriaMetrics operator | `cp-victoria-metrics-operator` | Manages VictoriaMetrics custom resources |
+| Chainstack blockchain-node-exporter | `cp-blockchain-node-exporter` | Chain-specific health signals |
+| Prometheus node exporter | `cp-prometheus-node-exporter` | Host-level metrics |
+| kube-state-metrics | `cp-kube-state-metrics` | Kubernetes resource metrics |
+
+## Accessing Grafana
+
+The Grafana service (`cp-grafana`) is a ClusterIP service on port 80. Expose it the same way as the Control Panel.
+
+### Port forward (testing)
+
+```bash
+kubectl port-forward svc/cp-grafana 3000:80 -n control-panel --address 0.0.0.0
+```
+
+Then open `http://<SERVER-IP>:3000` in your browser.
+
+### LoadBalancer (production)
+
+```bash
+kubectl expose service cp-grafana --type=LoadBalancer --name=cp-grafana-external -n control-panel
+kubectl get svc cp-grafana-external -n control-panel
+```
+
+### NodePort
+
+```bash
+kubectl expose service cp-grafana --type=NodePort --name=cp-grafana-nodeport -n control-panel
+```
+
+## Grafana credentials
+
+Grafana credentials are auto-generated during installation. At the end of the installation, `cpctl` displays the retrieval command. The Grafana username is `admin`. To retrieve the password:
+
+```bash
+yq '.grafana.adminPassword' ~/.config/cp-suite/values/cp-control-panel-*.yaml
+```
+
+## Dashboards
+
+Grafana ships with pre-built dashboards covering:
+
+- Ethereum node health — sync status, peer count, and client-specific signals from the Chainstack blockchain-node-exporter
+- Kubernetes infrastructure — pod status, resource utilization, and persistent volume metrics from kube-state-metrics and the Prometheus node exporter
+
+## Disabling monitoring
+
+During installation, the installer prompts you to configure the monitoring stack. Select option **[3] Skip monitoring** to skip it.
+
+You can also skip it non-interactively with `--disable-monitoring`:
+
+```bash
+cpctl install -v VERSION -s STORAGE_CLASS_NAME --disable-monitoring
+```
+
+Skipping monitoring removes all observability components. The Control Panel itself is unaffected.

@@ -1,0 +1,117 @@
+---
+title: "Advanced installation"
+description: "Customize your Chainstack Self-Hosted deployment with external databases, custom values, and full cpctl options reference"
+---
+
+Advanced installation generates a values template with pre-filled passwords and RSA keys before deploying. Use this mode when you need to customize the deployment — for example, to connect an external PostgreSQL database or Temporal server, or to adjust resource limits.
+
+For a quick setup with auto-generated defaults, use the [basic installation](/docs/self-hosted/installation) instead.
+
+## Advanced installation steps
+
+<Steps>
+
+<Step title="Generate the values template">
+
+```bash
+cpctl install --advanced -v VERSION
+```
+
+This creates a `cp-values.yaml` file in your current directory with auto-generated passwords and keys.
+
+To specify a different output file, use the `-o` flag:
+
+```bash
+cpctl install --advanced -v VERSION -o my-values.yaml
+```
+
+</Step>
+
+<Step title="Edit the values file">
+
+Open the generated file and customize it for your environment. The default file name is `cp-values.yaml`, or the name you specified with `-o`:
+
+```bash
+nano cp-values.yaml
+```
+
+Common customizations:
+
+- External PostgreSQL — provide your database host, port, credentials, and disable the bundled PostgreSQL-HA
+- External Temporal — provide your Temporal server address and disable the bundled Temporal
+- Storage class — set a specific storage class for persistent volumes
+- Resource limits — adjust CPU and memory for Control Panel components
+
+</Step>
+
+<Step title="Install with the custom values">
+
+Run the installer with your edited values file (replace the file name if you used `-o`):
+
+```bash
+cpctl install -v VERSION -f cp-values.yaml -s STORAGE_CLASS_NAME
+```
+
+</Step>
+
+<Step title="Confirm and deploy">
+
+The installer shows a summary and asks you to confirm:
+
+```text
+==> About to install Control Panel
+  Version: v1.4.6
+  Namespace: control-panel
+  Workload Namespace: control-panel-deployments
+  Release: cp
+  Timeout: 15m0s
+
+Do you want to proceed? [y/N]: y
+```
+
+Confirm with `y` to start the deployment.
+
+</Step>
+
+</Steps>
+
+Generated credentials are saved the same way as with basic installation — see [Credentials storage](/docs/self-hosted/installation#credentials-storage).
+
+## Installation options reference
+
+### Install flags
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-v, --version` | Chart version (required, format: `vX.Y.Z`) | — |
+| `-f, --values` | Path to custom values file | — |
+| `-s, --storage-class` | Storage class for persistent volumes | Cluster default |
+| `--workload-namespace` | Kubernetes namespace for blockchain node workloads | `<namespace>-deployments` |
+| `--set key=value` | Set Helm values (repeatable) | — |
+| `--advanced` | Generate values template instead of installing | `false` |
+| `-o, --output` | Output file for `--advanced` mode | `cp-values.yaml` |
+| `--backend-url` | CP UI backend API URL | `http://<release>-cp-deployments-api` |
+| `--disable-monitoring` | Skip monitoring stack installation | `false` |
+| `--reuse-vm-operator` | Use existing VictoriaMetrics operator; skip operator and CRD installation | `false` |
+| `--chart-registry` | OCI registry URL | Public CP registry |
+| `-y, --yes` | Auto-approve prompts (non-interactive) | `false` |
+| `--dry-run` | Print Helm command without executing | `false` |
+| `--timeout` | Installation timeout | `15m0s` |
+| `--poll-interval` | Status polling interval for progress display | `3s` |
+| `--config-dir` | Directory for credentials storage | `~/.config/cp-suite` |
+| `--clear-lines` | Clear lines for progress updates in non-TUI mode (requires TTY) | `true` |
+
+### Global flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-n, --namespace` | Kubernetes namespace | `control-panel` |
+| `-r, --release` | Helm release name | `cp` |
+| `--kubeconfig` | Path to kubeconfig file | `~/.kube/config` |
+| `--no-color` | Disable colored output | `false` |
+| `--verbose` | Enable verbose output | `false` |
+
+## Next steps
+
+1. [First login](/docs/self-hosted/first-login) — First login and configuration
+2. [Deploying nodes](/docs/self-hosted/deploying-nodes) — Deploy your first blockchain node

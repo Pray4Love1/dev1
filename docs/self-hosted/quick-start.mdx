@@ -147,7 +147,7 @@ Get the installer by [joining the beta](https://chainstack.com/self-hosted/).
 Run the installer with your desired version and storage class:
 
 ```bash
-cpctl install -v v1.0.0 -s topolvm-provisioner
+cpctl install -v v1.4.6 -s topolvm-provisioner
 ```
 
 The installer will:
@@ -155,8 +155,10 @@ The installer will:
 1. Check prerequisites (kubectl, helm, yq, openssl, cluster access)
 2. Generate secure passwords for all services
 3. Save the credentials to `~/.config/cp-suite/values/`
-4. Prompt for the backend API URL. Use the default (`http://cp-cp-deployments-api`) for in-cluster access, or specify an external URL (e.g., `http://<SERVER-PUBLIC-IP>:8081`) if accessing from outside the cluster.
-5. Show a summary and ask you to confirm before deploying
+4. Prompt for the backend API URL. Use the default (`http://cp-cp-deployments-api`) for in-cluster access, or specify an external URL (e.g., `http://<SERVER-PUBLIC-IP>`) if accessing from outside the cluster.
+5. Prompt for the workload namespace where blockchain node pods will run (default: `control-panel-deployments`).
+6. Prompt to configure the monitoring stack — install fresh, reuse an existing VictoriaMetrics operator, or skip.
+7. Show a summary and ask you to confirm before deploying.
 
 The installation typically takes 5–10 minutes. You'll see output similar to:
 
@@ -173,11 +175,12 @@ The installation typically takes 5–10 minutes. You'll see output similar to:
 → Generating RSA keys for JWT authentication...
 → Saving credentials to config directory...
 ✓ Credentials saved: /root/.config/cp-suite/values/cp-control-panel-<timestamp>.yaml
-✓ Storage class "local-path" validated
+✓ Storage class "topolvm-provisioner" validated
 
 ==> About to install Control Panel
-  Version: v1.1.3
+  Version: v1.4.6
   Namespace: control-panel
+  Workload Namespace: control-panel-deployments
   Release: cp
   Timeout: 15m0s
 
@@ -212,24 +215,43 @@ Reason: All components ready
 
 <Step title="Expose the web interface">
 
-Expose the Control Panel for external access. If you specified an external backend URL during installation, expose both the UI and the deployments API:
+Apply an Ingress to expose both the Control Panel and Grafana under the same IP. The example below uses Traefik, which k3s ships with by default:
 
 ```bash
-# Expose UI as LoadBalancer
-kubectl expose service cp-cp-ui --type=LoadBalancer --name=cp-ui-external -n control-panel
-
-# Expose deployments API as LoadBalancer (if using external backend URL)
-kubectl expose service cp-cp-deployments-api --type=LoadBalancer --name=cp-api-external -n control-panel
-
-# Check assigned external IPs
-kubectl get svc cp-ui-external cp-api-external -n control-panel
+kubectl apply -f - <<EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cp-ui
+  namespace: control-panel
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /grafana
+        pathType: Prefix
+        backend:
+          service:
+            name: cp-grafana
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cp-cp-ui
+            port:
+              number: 80
+EOF
 ```
 
-For testing, use port forwarding:
+For testing without an ingress controller, use port forwarding:
 
 ```bash
 kubectl port-forward svc/cp-cp-ui 8080:80 -n control-panel --address 0.0.0.0 &
-kubectl port-forward svc/cp-cp-deployments-api 8081:8080 -n control-panel --address 0.0.0.0 &
+kubectl port-forward svc/cp-grafana 3000:80 -n control-panel --address 0.0.0.0 &
 ```
 
 </Step>
@@ -238,8 +260,8 @@ kubectl port-forward svc/cp-cp-deployments-api 8081:8080 -n control-panel --addr
 
 Open your browser and navigate to:
 
-- **LoadBalancer:** `http://<EXTERNAL-IP>`
-- **Port forward:** `http://<SERVER-IP>:8080`
+- **Ingress:** `http://<SERVER-IP>` — Control Panel, `http://<SERVER-IP>/grafana` — Grafana
+- **Port forward:** `http://<SERVER-IP>:8080` — Control Panel, `http://<SERVER-IP>:3000` — Grafana
 
 You should see the Chainstack Self-Hosted login page.
 

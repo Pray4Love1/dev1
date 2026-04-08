@@ -1,0 +1,73 @@
+---
+title: "Upgrade"
+description: "Upgrade Chainstack Self-Hosted to a new version using cpctl"
+---
+
+Use `cpctl upgrade` to update the Control Panel to a new version in place.
+
+## Before you upgrade
+
+- **Running nodes are unaffected.** The upgrade only restarts Control Panel pods. Blockchain node pods in `control-panel-deployments` continue running throughout.
+- **No downgrades.** The upgrade enforces preflight checks including `VersionCompatibility`, `NotDowngrade`, and `MaxMajorJump`. Attempts to upgrade to an incompatible or lower version will be blocked before any changes are made.
+- **Values are backed up automatically.** Before applying changes, your current values are saved to `~/.config/cp-suite/values/pre-upgrade-<timestamp>.yaml`. Pass `--no-backup` to skip this.
+
+## Upgrade
+
+```bash
+cpctl upgrade -v VERSION
+```
+
+For example:
+
+```bash
+cpctl upgrade -v v1.4.6
+```
+
+The upgrade is atomic: if the deployment fails or times out, Helm automatically rolls back to the previous revision.
+
+Before applying changes, `cpctl upgrade` runs preflight checks and shows:
+
+- A plan preview of what will change
+- A diff of configuration values between versions
+- A backup of your current values (unless `--no-backup` is passed)
+
+After a successful upgrade, a journal is written to your config directory for auditability.
+
+## Upgrade flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-v, --version` | Chart version to upgrade to (required) | — |
+| `-f, --values` | Path to custom values file | — |
+| `--set key=value` | Set Helm values (repeatable) | — |
+| `-s, --storage-class` | Storage class for persistent volumes | — |
+| `--chart-registry` | OCI registry URL | Public CP registry |
+| `--show-diff` | Show full resource-level diff (not just summary) | `false` |
+| `--no-diff` | Skip diff preview | `false` |
+| `--no-backup` | Skip values backup before upgrade | `false` |
+| `--ignore-preflight-errors` | Comma-separated preflight check names to skip; use `all` to skip all | — |
+| `--preflight-timeout` | Preflight phase timeout | `1m0s` |
+| `--skip-version-check` | Bypass version compatibility validation | `false` |
+| `--reset-values` | Reset values to chart defaults, discarding current values | `false` |
+| `--force` | Force resource update through delete/recreate. Causes brief service disruption. Use only when a normal upgrade fails due to immutable field changes. | `false` |
+| `--timeout` | Helm upgrade timeout | `15m0s` |
+| `-y, --yes` | Skip confirmation prompts | `false` |
+
+## Troubleshooting
+
+If an upgrade fails, check the upgrade journal for a detailed error log:
+
+```bash
+cat ~/.config/cp-suite/upgrade-journal.jsonl
+```
+
+To preview what an upgrade would change without applying anything:
+
+```bash
+cpctl upgrade -v VERSION --show-diff --dry-run
+```
+
+## Next steps
+
+- [Uninstallation](/docs/self-hosted/uninstallation) — Remove Chainstack Self-Hosted from your cluster
+- [Installation](/docs/self-hosted/installation) — Reinstall from scratch
