@@ -1,0 +1,221 @@
+---
+title: "Chainstack MCP server"
+description: "Deploy nodes, search docs, and manage your Chainstack infrastructure from any AI agent"
+---
+
+The **Chainstack MCP server** is a remote MCP server at `https://mcp.chainstack.com/mcp` that gives AI agents access to the Chainstack platform. Transport: Streamable HTTP.
+
+## Tools
+
+**No API key needed:**
+
+| Tool | Description |
+|------|-------------|
+| `search_docs` | Search Chainstack documentation — blockchain RPC methods, deployment guides, code examples |
+| `get_doc_page` | Fetch the full content of a documentation page |
+| `get_platform_status` | Check platform status, active incidents, and network health |
+
+**API key required** (get one at [console.chainstack.com/user/settings/api-keys](https://console.chainstack.com/user/settings/api-keys)):
+
+| Tool | Description |
+|------|-------------|
+| `get_organization` | Get organization name and ID |
+| `get_deployment_options` | List available blockchain/cloud/region combinations |
+| `list_projects` | List all projects |
+| `create_project` | Create a new project |
+| `get_project` | Get project details |
+| `update_project` | Update a project's name or description |
+| `delete_project` | Delete a project |
+| `list_nodes` | List all nodes with status and endpoints |
+| `get_node` | Get a node's full details including RPC endpoints |
+| `create_node` | Deploy a new blockchain node |
+| `update_node` | Rename a node |
+| `delete_node` | Delete a node |
+
+## Option 1: Install as a skill
+
+Save the SKILL.md to your agent's skills directory. The agent calls tools via HTTP on demand — no MCP registration, no tools forced into context.
+
+| Agent | Skills directory |
+|---|---|
+| Claude Code / Cowork | `~/.claude/skills/chainstack/` |
+| Codex / Gemini CLI / Antigravity / Copilot | `~/.agents/skills/chainstack/` |
+| Cursor | `~/.cursor/skills/chainstack/` |
+| Windsurf | `~/.codeium/windsurf/skills/chainstack/` |
+
+```bash
+# Claude Code
+mkdir -p ~/.claude/skills/chainstack
+curl -o ~/.claude/skills/chainstack/SKILL.md https://mcp.chainstack.com/skill
+
+# Codex, Gemini CLI, Antigravity, Copilot (shared directory)
+mkdir -p ~/.agents/skills/chainstack
+curl -o ~/.agents/skills/chainstack/SKILL.md https://mcp.chainstack.com/skill
+```
+
+You may need to restart your agent or start a new session for the skill to take effect.
+
+The skill contains workflows, tool reference, curl examples, and error handling. To set up your API key for authenticated tools, add it to your shell profile:
+
+```bash
+export CHAINSTACK_API_KEY="your-key-from-console.chainstack.com/user/settings/api-keys"
+```
+
+## Option 2: Register as an MCP server
+
+Add the server to your agent's configuration. Tools appear in context every session.
+
+### Claude Code
+
+```bash
+# All projects
+claude mcp add --transport http chainstack https://mcp.chainstack.com/mcp -s user
+
+# This project only
+claude mcp add --transport http chainstack https://mcp.chainstack.com/mcp
+
+# With API key
+claude mcp add --transport http chainstack https://mcp.chainstack.com/mcp -s user \
+  --header "Authorization: Bearer YOUR_API_KEY"
+```
+
+### Codex CLI
+
+```bash
+codex mcp add chainstack --url https://mcp.chainstack.com/mcp
+```
+
+Or edit `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.chainstack]
+url = "https://mcp.chainstack.com/mcp"
+
+[mcp_servers.chainstack.http_headers]
+Authorization = "Bearer YOUR_API_KEY"
+```
+
+### Cursor
+
+Edit `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "chainstack": {
+      "url": "https://mcp.chainstack.com/mcp",
+      "transport": "streamable-http",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+### Windsurf
+
+Edit `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "chainstack": {
+      "serverUrl": "https://mcp.chainstack.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+### GitHub Copilot (VS Code)
+
+Edit `.vscode/mcp.json` (workspace) or use Command Palette > "MCP: Open User Configuration" (global):
+
+```json
+{
+  "servers": {
+    "chainstack": {
+      "type": "http",
+      "url": "https://mcp.chainstack.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+<Note>
+GitHub Copilot uses `servers` as the root key, not `mcpServers`.
+</Note>
+
+### Gemini CLI
+
+```bash
+# All projects
+gemini mcp add -s user --url https://mcp.chainstack.com/mcp chainstack
+
+# This project only
+gemini mcp add --url https://mcp.chainstack.com/mcp chainstack
+```
+
+Or edit `~/.gemini/settings.json` (global) or `.gemini/settings.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "chainstack": {
+      "httpUrl": "https://mcp.chainstack.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+<Note>
+Gemini CLI uses `httpUrl` for Streamable HTTP endpoints, not `url`.
+</Note>
+
+### Antigravity
+
+Edit `~/.gemini/antigravity/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "chainstack": {
+      "serverUrl": "https://mcp.chainstack.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+### Claude.ai
+
+Settings > Connectors > Add custom connector > paste `https://mcp.chainstack.com/mcp`
+
+### ChatGPT
+
+Settings > Apps & Connectors > Developer mode > Create > paste `https://mcp.chainstack.com/mcp`
+
+## Discovery
+
+Visit [mcp.chainstack.com](https://mcp.chainstack.com/) for an agent-readable onboarding page. Point any agent at this URL (e.g., "get mcp.chainstack.com") and it can read the page and self-configure.
+
+## Endpoints
+
+| Path | Description |
+|------|-------------|
+| `/` | Agent-readable discovery and onboarding page |
+| `/mcp` | MCP transport (Streamable HTTP) |
+| `/skill` | SKILL.md — full usage guide for on-demand skill mode |
+| `/healthz` | Liveness probe |
+| `/readyz` | Readiness probe |

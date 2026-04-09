@@ -1245,9 +1245,7 @@
             "group": "MCP servers",
             "pages": [
               "docs/mcp-servers-introduction",
-              "docs/developer-portal-mcp-server",
-              "docs/evm-mcp-server",
-              "docs/solana-mcp-server"
+              "docs/chainstack-mcp-server"
             ]
           },
           {
