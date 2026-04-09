@@ -1242,9 +1242,8 @@
             ]
           },
           {
-            "group": "MCP servers",
+            "group": "Agents",
             "pages": [
-              "docs/mcp-servers-introduction",
               "docs/chainstack-mcp-server"
             ]
           },
