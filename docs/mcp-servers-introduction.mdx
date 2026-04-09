@@ -3,57 +3,12 @@ title: "MCP servers"
 description: "Connect AI agents to the Chainstack platform via the Model Context Protocol"
 ---
 
-Chainstack provides a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that gives AI agents direct access to the Chainstack platform — deploy blockchain nodes, search documentation, and check platform status, all from your coding environment.
+Chainstack provides a unified [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server at `https://mcp.chainstack.com/mcp` that gives AI agents access to the entire Chainstack platform.
 
-## What is MCP?
+Type this into any AI agent to get started:
 
-The Model Context Protocol (MCP) is an open standard that lets AI applications connect to external tools and data sources. MCP servers expose capabilities that AI models can call on demand.
-
-In practice, you connect the Chainstack MCP server to your agent (Claude Code, Cursor, Codex, Windsurf, Gemini CLI, GitHub Copilot, etc.) and it can manage your Chainstack infrastructure directly — no copy-pasting between the console and your IDE.
-
-## Chainstack MCP server
-
-The **Chainstack MCP server** is a unified, remote server at `https://mcp.chainstack.com/mcp`. It provides:
-
-- **Documentation search** — search and retrieve full pages from docs.chainstack.com
-- **Platform status** — check active incidents and network health
-- **Node management** — deploy, list, inspect, and delete blockchain nodes
-- **Project management** — create and manage projects
-- **Deployment options** — discover available blockchain/cloud/region combinations
-
-No auth is needed for documentation search and platform status. Node and project management requires a [Chainstack API key](https://console.chainstack.com/user/settings/api-keys).
-
-## Two ways to connect
-
-### Option 1: Install as a skill (lean context)
-
-Save the skill file to your agent's skills directory. The agent calls Chainstack tools via HTTP on demand — no persistent connection, no tools forced into context.
-
-```bash
-mkdir -p ~/.claude/skills/chainstack
-curl -o ~/.claude/skills/chainstack/SKILL.md https://mcp.chainstack.com/skill
+```
+get mcp.chainstack.com
 ```
 
-See [Chainstack MCP server](/docs/chainstack-mcp-server) for skill directories for other agents.
-
-### Option 2: Register as an MCP server (tools always in context)
-
-Add the server to your agent's MCP config. Tools appear in every session automatically.
-
-```bash
-claude mcp add --transport http chainstack https://mcp.chainstack.com/mcp -s user
-```
-
-See [Chainstack MCP server](/docs/chainstack-mcp-server) for configs for all supported agents.
-
-## Discovery
-
-Visit `https://mcp.chainstack.com/` for an agent-readable onboarding page with per-agent configuration snippets, tool reference, and setup instructions. Point any agent at this URL and it can self-configure.
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Chainstack MCP server" href="/docs/chainstack-mcp-server">
-    Full setup guide, tools, and workflows
-  </Card>
-</CardGroup>
+See [Chainstack MCP server](/docs/chainstack-mcp-server) for the full setup guide, tools, and per-agent configurations.
