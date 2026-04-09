@@ -957,6 +957,12 @@
             ]
           },
           {
+            "group": "Agents",
+            "pages": [
+              "docs/chainstack-mcp-server"
+            ]
+          },
+          {
             "group": "Pricing",
             "pages": [
               "docs/pricing-introduction",
@@ -1239,15 +1245,6 @@
               "docs/subgraphs-introduction",
               "docs/manage-your-subgraphs",
               "docs/deploy-a-subgraph"
-            ]
-          },
-          {
-            "group": "MCP servers",
-            "pages": [
-              "docs/mcp-servers-introduction",
-              "docs/developer-portal-mcp-server",
-              "docs/evm-mcp-server",
-              "docs/solana-mcp-server"
             ]
           },
           {
