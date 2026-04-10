@@ -1,8 +1,30 @@
 ---
 title: "Chainstack Self-Hosted v1.5.0: April 2026"
-description: "Dark theme support for the Control Panel"
+description: "Unified deployment progress view, dark mode for the Control Panel, reduced frontend bundle size, and Reth v1.11.3 support."
 ---
 
-## Dark theme
+## Unified deployment progress
 
-The Control Panel now supports a dark theme. Switch between light and dark modes from the user preferences in the Control Panel.
+The node deployment progress display has been redesigned with a unified, flat structure. Bootstrap, configuration, and sync stages now flow into one timeline, giving you a single consistent view of what is happening during a deployment. Previously, status updates from different subsystems appeared separately and out of sequence. This is the first step in a broader effort to make node lifecycle visibility cleaner and more actionable.
+
+## Dark mode
+
+The Control Panel now supports dark mode. Switch between light and dark themes from the interface settings. The dark theme applies across all pages and panels in the Control Panel.
+
+## UI performance improvements
+
+The frontend vendor bundle has been reduced from roughly 1,900 KiB to around 57 KiB. This results in noticeably faster initial load times and lower bandwidth usage, especially on slower connections or remote deployments.
+
+## Reth v1.11.3
+
+Reth, the Ethereum execution client, is now supported at version 1.11.3. Upgrade existing Reth nodes to this version using the standard one-click upgrade workflow.
+
+## Component versions
+
+| Component | Version |
+|---|---|
+| cp-ui | v2.2.0 |
+| cp-deployments-api | v0.30.0 |
+| cp-workflows | v1.11.0 |
+| cp-auth | v0.4.2 |
+| cp-bolt | v1.8.0 |
