@@ -957,12 +957,6 @@
             ]
           },
           {
-            "group": "Agents",
-            "pages": [
-              "docs/chainstack-mcp-server"
-            ]
-          },
-          {
             "group": "Pricing",
             "pages": [
               "docs/pricing-introduction",
@@ -1245,6 +1239,16 @@
               "docs/subgraphs-introduction",
               "docs/manage-your-subgraphs",
               "docs/deploy-a-subgraph"
+            ]
+          },
+          {
+            "group": "MCP servers",
+            "pages": [
+              "docs/mcp-servers-introduction",
+              "docs/chainstack-mcp-server",
+              "docs/developer-portal-mcp-server",
+              "docs/evm-mcp-server",
+              "docs/solana-mcp-server"
             ]
           },
           {
@@ -3718,8 +3722,6 @@
                   "docs/self-hosted/requirements",
                   "docs/self-hosted/environment-setup",
                   "docs/self-hosted/installation",
-                  "docs/self-hosted/advanced-installation",
-                  "docs/self-hosted/upgrade",
                   "docs/self-hosted/first-login",
                   "docs/self-hosted/uninstallation"
                 ]
@@ -3728,8 +3730,7 @@
                 "group": "Node management",
                 "pages": [
                   "docs/self-hosted/deploying-nodes",
-                  "docs/self-hosted/managing-nodes",
-                  "docs/self-hosted/monitoring"
+                  "docs/self-hosted/managing-nodes"
                 ]
               },
               {
@@ -3746,9 +3747,7 @@
             "tab": "Release notes",
             "pages": [
               "docs/self-hosted/release-notes",
-              "docs/self-hosted/changelog/chainstack-self-hosted-v1-6-0-april-10-2026",
-              "docs/self-hosted/changelog/chainstack-self-hosted-v1-5-0-april-10-2026",
-              "docs/self-hosted/changelog/chainstack-self-hosted-v1-4-6-april-6-2026",
+              "docs/self-hosted/changelog/chainstack-self-hosted-v1-4-6-april-2026",
               "docs/self-hosted/changelog/chainstack-self-hosted-v1-0-0-january-28-2026"
             ]
           }
