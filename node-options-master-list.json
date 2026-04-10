@@ -1100,6 +1100,11 @@
                   "mode": "Full",
                   "debug_trace": false,
                   "warp_transactions": false
+                },
+                {
+                  "mode": "Archive",
+                  "debug_trace": true,
+                  "warp_transactions": false
                 }
               ]
             }
