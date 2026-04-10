@@ -3746,8 +3746,9 @@
             "tab": "Release notes",
             "pages": [
               "docs/self-hosted/release-notes",
-              "docs/self-hosted/changelog/chainstack-self-hosted-v1-5-0-april-2026",
-              "docs/self-hosted/changelog/chainstack-self-hosted-v1-4-6-april-2026",
+              "docs/self-hosted/changelog/chainstack-self-hosted-v1-6-0-april-10-2026",
+              "docs/self-hosted/changelog/chainstack-self-hosted-v1-5-0-april-10-2026",
+              "docs/self-hosted/changelog/chainstack-self-hosted-v1-4-6-april-6-2026",
               "docs/self-hosted/changelog/chainstack-self-hosted-v1-0-0-january-28-2026"
             ]
           }
