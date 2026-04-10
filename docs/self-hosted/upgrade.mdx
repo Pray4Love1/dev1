@@ -8,8 +8,8 @@ Use `cpctl upgrade` to update the Control Panel to a new version in place.
 ## Before you upgrade
 
 - **Running nodes are unaffected.** The upgrade only restarts Control Panel pods. Blockchain node pods in `control-panel-deployments` continue running throughout.
-- **No downgrades.** The upgrade enforces preflight checks including `VersionCompatibility`, `NotDowngrade`, and `MaxMajorJump`. Attempts to upgrade to an incompatible or lower version will be blocked before any changes are made.
-- **Values are backed up automatically.** Before applying changes, your current values are saved to `~/.config/cp-suite/values/pre-upgrade-<timestamp>.yaml`. Pass `--no-backup` to skip this.
+- **No downgrades.** Before any changes are made, `cpctl upgrade` runs the following preflight checks: `ClusterAccess`, `ReleaseExists`, `ReleaseNotPending`, `VersionCompatibility`, `NotDowngrade`, `MaxMajorJump`, `PendingPods`. If any check fails, the upgrade is aborted.
+- **Values are backed up automatically.** Before applying changes, your current values are saved to `~/.config/cp-suite/values/pre-upgrade-<release>-<revision>-<timestamp>.yaml`. Pass `--no-backup` to skip this.
 
 ## Upgrade
 
@@ -25,11 +25,35 @@ cpctl upgrade -v v1.4.6
 
 The upgrade is atomic: if the deployment fails or times out, Helm automatically rolls back to the previous revision.
 
-Before applying changes, `cpctl upgrade` runs preflight checks and shows:
+After passing preflight checks and backing up your values, `cpctl upgrade` computes a server-side diff and presents an upgrade plan before prompting for confirmation:
 
-- A plan preview of what will change
-- A diff of configuration values between versions
-- A backup of your current values (unless `--no-backup` is passed)
+```text
+╭────────────────────────────────────────────────────────────────────────╮
+│                              Upgrade Plan                              │
+├────────────────────────────────────────────────────────────────────────┤
+│  Release:   cp (namespace: control-panel)                              │
+│  From:      cp-distributed v1.4.6 (rev 1)                              │
+│  To:        cp-distributed v1.5.0                                      │
+│  Values:    preserved (backed up)                                      │
+│  Mode:      atomic (auto-rollback on fail)                             │
+│  Backup:    /root/.config/cp-suite/values/pre-upgrade-cp-1-<timestamp>…│
+├────────────────────────────────────────────────────────────────────────┤
+│  Changes:                                                              │
+│    ~ Deployment/cp-cp-ui (containers, metadata.labels, pod.labels)     │
+│    ~ Deployment/cp-cp-deployments-api (containers, initContainers, …)  │
+│    + Job/cp-temporal-schema-2                                          │
+│    - Job/cp-temporal-schema-1                                          │
+│    ... and more                                                        │
+╰────────────────────────────────────────────────────────────────────────╯
+
+Proceed with upgrade? [y/N]:
+```
+
+On success:
+
+```text
+✓ Upgrade to v1.5.0 completed (revision 1 → 2)
+```
 
 After a successful upgrade, a journal is written to your config directory for auditability.
 
@@ -59,6 +83,8 @@ If an upgrade fails, check the upgrade journal for a detailed error log:
 
 ```bash
 cat ~/.config/cp-suite/upgrade-journal.jsonl
+# or inspect the pre-upgrade backup
+ls ~/.config/cp-suite/values/pre-upgrade-*.yaml
 ```
 
 To preview what an upgrade would change without applying anything:
