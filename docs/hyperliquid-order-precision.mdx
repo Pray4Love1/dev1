@@ -1,6 +1,6 @@
 ---
 title: "Handling order precision and market metadata"
-description: "Learn how to query metadata and calculate valid order sizes dynamically across different Hyperliquid assets"
+description: Query Hyperliquid metadata to dynamically calculate valid order sizes, tick precision, and lot sizes across different trading assets using the SDK.
 ---
 
 Hyperliquid rejects orders with wrong precision. BTC requires 5 decimal places for size, PURR needs 0 (whole integers only), and others vary from 0 to 8. If you hardcode precision, your bot breaks when trading new assets. This guide shows you how to query metadata and calculate valid order sizes dynamically.
