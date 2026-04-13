@@ -239,7 +239,42 @@ print(f"Storage slot 0: {value.hex()}")
 
 ## Build a simple block monitor
 
-Since Monad doesn't currently support WebSocket subscriptions, use polling to monitor new blocks:
+Stream new blocks in real time with `eth_subscribe("newHeads")` over WebSocket:
+
+```python
+import asyncio
+import json
+from datetime import datetime
+import websockets
+
+CHAINSTACK_WSS_ENDPOINT = "YOUR_CHAINSTACK_WSS_ENDPOINT"
+
+async def monitor_blocks():
+    async with websockets.connect(CHAINSTACK_WSS_ENDPOINT) as ws:
+        await ws.send(json.dumps({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "eth_subscribe",
+            "params": ["newHeads"],
+        }))
+        sub = json.loads(await ws.recv())
+        print(f"Subscribed: {sub['result']}")
+
+        async for raw in ws:
+            msg = json.loads(raw)
+            if msg.get("method") != "eth_subscription":
+                continue
+            head = msg["params"]["result"]
+            block_num = int(head["number"], 16)
+            gas_used = int(head["gasUsed"], 16)
+            ts = datetime.fromtimestamp(int(head["timestamp"], 16)).strftime("%H:%M:%S")
+            print(f"Block {block_num} [{ts}]: gas used {gas_used}")
+
+if __name__ == "__main__":
+    asyncio.run(monitor_blocks())
+```
+
+If you can't use WebSocket, poll instead:
 
 ```python
 from web3 import Web3
@@ -258,7 +293,6 @@ def monitor_blocks():
             current_block = web3.eth.block_number
 
             if current_block > last_block:
-                # New block(s) detected
                 for block_num in range(last_block + 1, current_block + 1):
                     block = web3.eth.get_block(block_num)
                     timestamp = datetime.fromtimestamp(block.timestamp).strftime('%H:%M:%S')
@@ -330,10 +364,10 @@ if __name__ == "__main__":
 
 <Note>
 **Key differences from other EVM chains**:
-- **1-second finality**: Blocks are finalized immediately, no reorganizations
-- **No pending transactions**: `eth_getTransactionByHash` only returns confirmed transactions
-- **No WebSocket subscriptions yet**: Use polling for real-time data
-- **Block gas limit**: 300M gas per block
+- **1-second finality** — blocks are finalized immediately, no reorganizations
+- **No pending transactions** — `eth_getTransactionByHash` only returns confirmed transactions
+- **`eth_subscribe` subset** — `newHeads` and `logs` are supported; `newPendingTransactions` and `syncing` return `-32602 Invalid params`
+- **Block gas limit** — 300M gas per block
 </Note>
 
 ## Next steps

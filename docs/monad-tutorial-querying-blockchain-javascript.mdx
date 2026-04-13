@@ -232,7 +232,30 @@ getStorage();
 
 ## Build a simple block monitor
 
-Since Monad doesn't currently support WebSocket subscriptions, use polling to monitor new blocks:
+Stream new blocks in real time with `eth_subscribe("newHeads")` over WebSocket:
+
+```javascript
+const { ethers } = require("ethers");
+
+const provider = new ethers.WebSocketProvider("YOUR_CHAINSTACK_WSS_ENDPOINT");
+
+async function monitorBlocks() {
+  console.log("Subscribing to new blocks...");
+
+  provider.on("block", async (blockNumber) => {
+    try {
+      const block = await provider.getBlock(blockNumber);
+      console.log(`Block ${blockNumber}: ${block.transactions.length} txs, gas used: ${block.gasUsed.toString()}`);
+    } catch (error) {
+      console.error("Error fetching block:", error.message);
+    }
+  });
+}
+
+monitorBlocks();
+```
+
+If you can't use WebSocket, poll instead:
 
 ```javascript
 const { ethers } = require("ethers");
@@ -249,7 +272,6 @@ async function monitorBlocks() {
       const currentBlock = await provider.getBlockNumber();
 
       if (currentBlock > lastBlock) {
-        // New block(s) detected
         for (let i = lastBlock + 1; i <= currentBlock; i++) {
           const block = await provider.getBlock(i);
           console.log(`Block ${i}: ${block.transactions.length} txs, gas used: ${block.gasUsed.toString()}`);
@@ -315,10 +337,10 @@ main().catch(console.error);
 
 <Note>
 **Key differences from other EVM chains**:
-- **1-second finality**: Blocks are finalized immediately, no reorganizations
-- **No pending transactions**: `eth_getTransactionByHash` only returns confirmed transactions
-- **No WebSocket subscriptions yet**: Use polling for real-time data
-- **Block gas limit**: 300M gas per block
+- **1-second finality** — blocks are finalized immediately, no reorganizations
+- **No pending transactions** — `eth_getTransactionByHash` only returns confirmed transactions
+- **`eth_subscribe` subset** — `newHeads` and `logs` are supported; `newPendingTransactions` and `syncing` return `-32602 Invalid params`
+- **Block gas limit** — 300M gas per block
 </Note>
 
 ## Next steps
