@@ -68,4 +68,4 @@ while True:
 
 ## Use case
 
-A practical use case for `eth_newBlockFilter` is building applications that need to react to new blocks as they are mined, such as block explorers, monitoring tools, or applications that need to track chain progress without using WebSocket subscriptions.
+A practical use case for `eth_newBlockFilter` is building applications that need to react to new blocks as they are mined, such as block explorers, monitoring tools, or HTTP-only clients that can't hold a persistent WebSocket connection. For real-time streaming, prefer `eth_subscribe("newHeads")` over WebSocket — see the [event-monitoring tutorial](/docs/monad-tutorial-event-monitoring).

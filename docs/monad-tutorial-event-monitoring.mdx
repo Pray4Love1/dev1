@@ -1,9 +1,9 @@
 ---
 title: "Monad: Monitoring events and transactions"
-description: Build real-time smart contract event monitoring tools for Monad using polling-based log tracking with ethers.js and web3.py through Chainstack endpoints.
+description: Build real-time smart contract event monitoring tools for Monad with ethers.js and web3.py — eth_subscribe over WebSocket for live streaming, plus eth_getLogs polling as an alternative.
 ---
 
-This tutorial teaches you how to monitor on-chain events and transactions on Monad. Since Monad doesn't currently support WebSocket subscriptions, you'll learn polling-based techniques that work reliably with Monad's 1-second blocks.
+This tutorial teaches you how to monitor on-chain events and transactions on Monad. You'll use WebSocket subscriptions (`eth_subscribe`) for real-time streaming, with HTTP polling via `eth_getLogs` as an alternative pattern for environments where WebSocket isn't an option.
 
 <Check>
 **Get your own node endpoint today**
@@ -14,9 +14,10 @@ You can sign up with your GitHub, X, Google, or Microsoft account.
 </Check>
 
 **TLDR:**
-* Monitor ERC-20 Transfer events using eth_getLogs
-* Build a polling-based block and event monitor
-* Track specific contract events in real-time
+* Stream real-time events with `eth_subscribe("logs", {...})` over WebSocket
+* Stream new blocks with `eth_subscribe("newHeads")`
+* Alternative: query logs over HTTP with `eth_getLogs`
+* Monitor ERC-20 Transfer events on WMON (Wrapped MON)
 * Handle Monad's high-throughput blocks efficiently
 * Both JavaScript and Python implementations
 
@@ -28,14 +29,18 @@ You can sign up with your GitHub, X, Google, or Microsoft account.
 
 ## Overview
 
-Monad's event monitoring differs from Ethereum in a few ways:
+Event monitoring on Monad differs from Ethereum in a few ways:
 
-- **No WebSocket subscriptions**: Use polling instead of `eth_subscribe`
-- **1-second blocks**: Poll every second to match block production
-- **High transaction volume**: Blocks contain many transactions, so use small block ranges
-- **Immediate finality**: No need to wait for confirmations or handle reorgs
+- **WebSocket subscriptions** — `eth_subscribe("newHeads")` and `eth_subscribe("logs", {...})` are supported for real-time streaming. `eth_subscribe("newPendingTransactions")` and `eth_subscribe("syncing")` are not supported and return `-32602 Invalid params`.
+- **1-second blocks** — events appear roughly every second
+- **High transaction volume** — blocks contain many transactions, so when using `eth_getLogs`, query small block ranges
+- **Immediate finality** — no need to wait for confirmations or handle reorgs
 
 This tutorial shows you how to build efficient monitoring tools that work with Monad's architecture.
+
+<Note>
+Use your Chainstack node's WSS endpoint (`wss://…`) for subscription examples. See [Node access and credentials](/docs/manage-your-node#view-node-access-and-credentials).
+</Note>
 
 ## Understanding Monad's event system
 
@@ -43,19 +48,142 @@ Events (logs) on Monad work the same as Ethereum:
 
 1. Smart contracts emit events during execution
 2. Events are stored in transaction receipts
-3. You query events using `eth_getLogs` with filters
+3. You stream events in real time with `eth_subscribe("logs", {...})` over WebSocket, or query historical events with `eth_getLogs` over HTTP
 
-The key difference is retrieval strategy. On Monad:
+Pick the pattern that fits your use case:
 
-- Use small block ranges (1-10 blocks) per query
-- Poll every 1 second to match block time
-- Process logs immediately since they're final
+- **Real-time streaming** — use `eth_subscribe` over WebSocket. Lower latency, no polling loop, no missed blocks
+- **Historical queries or HTTP-only environments** — use `eth_getLogs`. Use small block ranges (1–10 blocks) per query, and process logs immediately since they're final
 
-## Monitor WMON Transfer events
+## Stream events in real time with `eth_subscribe`
 
-Let's start by monitoring Transfer events on WMON (Wrapped MON), the most common token on Monad.
+`eth_subscribe("logs", {...})` streams matching events to you over a WebSocket connection as soon as a block containing them lands. No polling, no missed blocks, no extra request budget burned on idle intervals.
 
-### JavaScript implementation
+### JavaScript — subscribe to WMON Transfers
+
+```javascript subscribe-wmon.js
+const { ethers } = require("ethers");
+
+const CHAINSTACK_WSS_ENDPOINT = "YOUR_CHAINSTACK_WSS_ENDPOINT";
+const WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701";
+const TRANSFER_TOPIC = ethers.id("Transfer(address,address,uint256)");
+
+const provider = new ethers.WebSocketProvider(CHAINSTACK_WSS_ENDPOINT);
+
+function decodeTransfer(log) {
+  const from = "0x" + log.topics[1].slice(26);
+  const to = "0x" + log.topics[2].slice(26);
+  const value = BigInt(log.data);
+  return {
+    from,
+    to,
+    value: ethers.formatEther(value),
+    blockNumber: log.blockNumber,
+    transactionHash: log.transactionHash,
+  };
+}
+
+async function subscribe() {
+  console.log(`Subscribing to WMON Transfer events at ${WMON_ADDRESS}`);
+
+  const filter = {
+    address: WMON_ADDRESS,
+    topics: [TRANSFER_TOPIC],
+  };
+
+  provider.on(filter, (log) => {
+    const t = decodeTransfer(log);
+    console.log(`Block ${t.blockNumber}: ${t.value} WMON from ${t.from} to ${t.to}`);
+    console.log(`  Tx: ${t.transactionHash}`);
+  });
+}
+
+subscribe();
+```
+
+Run:
+
+```bash
+node subscribe-wmon.js
+```
+
+Under the hood, `provider.on(filter, handler)` sends a raw `eth_subscribe` request:
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"eth_subscribe","params":["logs",{"address":"0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701","topics":["0xddf252ad..."]}]}
+```
+
+### Python — subscribe to WMON Transfers
+
+```python subscribe_wmon.py
+import asyncio
+import json
+import websockets
+
+CHAINSTACK_WSS_ENDPOINT = "YOUR_CHAINSTACK_WSS_ENDPOINT"
+WMON_ADDRESS = "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701"
+# keccak256("Transfer(address,address,uint256)")
+TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+
+async def subscribe():
+    async with websockets.connect(CHAINSTACK_WSS_ENDPOINT) as ws:
+        await ws.send(json.dumps({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "eth_subscribe",
+            "params": ["logs", {
+                "address": WMON_ADDRESS,
+                "topics": [TRANSFER_TOPIC],
+            }],
+        }))
+        sub = json.loads(await ws.recv())
+        print(f"Subscribed: {sub['result']}")
+
+        async for raw in ws:
+            msg = json.loads(raw)
+            if msg.get("method") != "eth_subscription":
+                continue
+            log = msg["params"]["result"]
+            from_addr = "0x" + log["topics"][1][26:]
+            to_addr = "0x" + log["topics"][2][26:]
+            value_wei = int(log["data"], 16)
+            value = value_wei / 10**18
+            print(f"Block {int(log['blockNumber'], 16)}: {value} WMON "
+                  f"from {from_addr} to {to_addr}")
+            print(f"  Tx: {log['transactionHash']}")
+
+asyncio.run(subscribe())
+```
+
+Run:
+
+```bash
+pip install websockets
+python subscribe_wmon.py
+```
+
+### Subscribe to new block headers
+
+Use `eth_subscribe("newHeads")` to react to every new block as it's produced:
+
+```javascript subscribe-newheads.js
+const { ethers } = require("ethers");
+
+const CHAINSTACK_WSS_ENDPOINT = "YOUR_CHAINSTACK_WSS_ENDPOINT";
+const provider = new ethers.WebSocketProvider(CHAINSTACK_WSS_ENDPOINT);
+
+provider.on("block", async (blockNumber) => {
+  const block = await provider.getBlock(blockNumber);
+  const utilization = ((Number(block.gasUsed) / Number(block.gasLimit)) * 100).toFixed(2);
+  console.log(`Block ${blockNumber}: ${block.transactions.length} txs, gas ${utilization}%`);
+});
+```
+
+## Alternative: poll with `eth_getLogs`
+
+If you can't use WebSocket — for example, in a serverless function, a browser environment without persistent sockets, or a constrained runtime — poll `eth_getLogs` over HTTP instead.
+
+### JavaScript polling implementation
 
 ```javascript monitor-wmon.js
 const { ethers } = require("ethers");
@@ -145,7 +273,7 @@ Run:
 node monitor-wmon.js
 ```
 
-### Python implementation
+### Python polling implementation
 
 ```python monitor_wmon.py
 from web3 import Web3
@@ -235,9 +363,9 @@ Run:
 python monitor_wmon.py
 ```
 
-## Build a block monitor
+## Build a block monitor with polling
 
-Monitor all transactions in new blocks:
+Monitor all transactions in new blocks over HTTP. For a WebSocket equivalent, see the `eth_subscribe("newHeads")` example above.
 
 ### JavaScript block monitor
 
@@ -497,22 +625,24 @@ monitorAddressTransfers(WATCH_ADDRESS);
 <Note>
 **Optimize your monitoring for Monad's characteristics:**
 
-1. **Use small block ranges**: Query 1-10 blocks at a time. Monad blocks can contain thousands of transactions.
+1. **Prefer `eth_subscribe` over polling** — WebSocket subscriptions are lower latency and don't burn request budget on idle intervals. Reach for `eth_getLogs` polling only when WebSocket isn't an option.
 
-2. **Poll every second**: Monad produces blocks every ~1 second. Polling faster wastes requests; slower misses events.
+2. **Use small block ranges when polling** — query 1–10 blocks at a time. Monad blocks can contain thousands of transactions.
 
-3. **Handle high volume**: Be prepared for blocks with many events. Process asynchronously if needed.
+3. **Match polling cadence to block time** — Monad produces blocks every ~1 second. Polling faster wastes requests; slower misses events.
 
-4. **No reorg handling needed**: Monad has instant finality. Once you see an event, it's permanent.
+4. **Handle high volume** — be prepared for blocks with many events. Process asynchronously if needed.
 
-5. **Batch your queries**: If monitoring multiple contracts, combine filters where possible.
+5. **No reorg handling needed** — Monad has instant finality. Once you see an event, it's permanent.
+
+6. **Batch your queries** — if monitoring multiple contracts, combine filters where possible.
 </Note>
 
 <Warning>
-**eth_getLogs limitations:**
-- Most nodes limit the block range per query (typically 1,000-10,000 blocks)
+**`eth_getLogs` limitations:**
+- Most nodes limit the block range per query (typically 1,000–10,000 blocks)
 - For historical data, paginate through block ranges
-- For real-time monitoring, stick to recent blocks only
+- For real-time monitoring, stick to recent blocks only — or use `eth_subscribe("logs", {...})` instead
 </Warning>
 
 ## Monad-specific notes
@@ -520,11 +650,11 @@ monitorAddressTransfers(WATCH_ADDRESS);
 <Note>
 **Key differences from Ethereum monitoring:**
 
-- **No eth_subscribe**: WebSocket subscriptions aren't available yet. Use HTTP polling.
-- **1-second blocks**: Events appear faster than on Ethereum. Your monitor needs to keep up.
-- **No pending transactions**: You can't monitor the mempool. Only confirmed transactions are visible.
-- **Immediate finality**: No need to wait for confirmations. Events are final when you see them.
-- **High throughput**: Expect more events per block than on Ethereum. Design accordingly.
+- **`eth_subscribe` subset** — `newHeads` and `logs` are supported. `eth_subscribe("newPendingTransactions")` and `eth_subscribe("syncing")` are not supported on Monad and return `-32602 Invalid params`.
+- **1-second blocks** — events appear faster than on Ethereum. Your monitor needs to keep up.
+- **No pending transactions** — you can't monitor the mempool. Only confirmed transactions are visible.
+- **Immediate finality** — no need to wait for confirmations. Events are final when you see them.
+- **High throughput** — expect more events per block than on Ethereum. Design accordingly.
 </Note>
 
 ## Complete monitoring script

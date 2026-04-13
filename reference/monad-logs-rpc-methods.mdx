@@ -18,6 +18,8 @@ Retrieving logs and events from the Monad blockchain can be done by using the fo
   <Card title="eth_getLogs" icon="angle-right" iconType="solid" href="/reference/monad-getlogs" horizontal/>
 </CardGroup>
 
+For real-time log streaming, use `eth_subscribe("logs", {...})` over a WebSocket connection. See the [event-monitoring tutorial](/docs/monad-tutorial-event-monitoring) for end-to-end examples in JavaScript and Python.
+
 This information can be used for:
 
 * **Event monitoring** — track specific events emitted by smart contracts.
