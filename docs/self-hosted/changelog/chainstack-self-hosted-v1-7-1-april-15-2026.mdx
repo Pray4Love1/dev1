@@ -1,0 +1,37 @@
+---
+title: "Chainstack Self-Hosted v1.7.1: April 15, 2026"
+description: "Built-in telemetry management via a new cp-tracer component, plus reliability improvements to the upgrade workflow and node deployment operations."
+---
+
+## Telemetry management
+
+A new `cp-tracer` component is deployed alongside the Control Panel to collect and export operational telemetry from your installation. Telemetry export is opt-in and fully operator-controlled:
+
+- `cpctl telemetry enable` — enables telemetry export
+- `cpctl telemetry disable` — disables telemetry export
+- `cpctl telemetry status` — displays the current telemetry state
+- `cpctl telemetry send` — triggers an immediate export on demand
+
+The installation identifier is automatically propagated to the tracer at install and upgrade time, so each export is correctly attributed to your deployment.
+
+## Upgrade reliability
+
+The `cpctl upgrade` command now validates input more strictly, catching invalid version strings and conflicting flags before the upgrade begins. Helm diff parsing has been refactored to decouple manifest evaluation from hook filtering, eliminating a class of false-positive diff results that could cause the upgrade to stall or misreport changes. Preflight checks are more resilient:
+
+- `--preflight-timeout` — configures how long preflight checks wait before timing out
+- `--ignore-preflight-errors` — allows the upgrade to continue past non-critical preflight errors
+
+## Node deployment stability
+
+Volume population polling during node deployment no longer uses a hard-coded timeout. Previously, this timeout could expire before a slow volume snapshot finished populating, marking a deployment as failed when it would have succeeded given more time. The workflow now relies on the Temporal activity context for deadline management, which is configured at the workflow level and respects actual deployment conditions.
+
+## Component versions
+
+| Component | Version |
+|---|---|
+| cp-ui | v2.2.0 |
+| cp-deployments-api | v0.31.3 |
+| cp-workflows | v1.13.1 |
+| cp-auth | v0.4.2 |
+| cp-bolt | v1.8.0 |
+| cp-tracer | v0.1.1 |
