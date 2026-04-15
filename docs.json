@@ -2537,7 +2537,8 @@
                   "reference/monad-getblockbyhash",
                   "reference/monad-getblocktransactioncountbyhash",
                   "reference/monad-getblocktransactioncountbynumber",
-                  "reference/monad-newblockfilter"
+                  "reference/monad-newblockfilter",
+                  "reference/monad-subscribe-monadnewheads"
                 ]
               },
               {
