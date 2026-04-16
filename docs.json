@@ -1133,6 +1133,7 @@
                   "docs/solana-estimate-priority-fees-getrecentprioritizationfees",
                   "docs/solana-how-to-use-multiple-rpc-endpoints-optimize-dapp-performance",
                   "docs/solana-how-to-handle-the-transaction-expiry-error",
+                  "docs/solana-address-lookup-tables",
                   "docs/solana-agave-20-upgrade-reference",
                   "docs/understanding-the-difference-between-blocks-and-slots-on-solana",
                   "docs/solana-optimize-your-getblock-performance",

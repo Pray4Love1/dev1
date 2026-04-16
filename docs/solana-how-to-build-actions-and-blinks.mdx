@@ -124,6 +124,7 @@ Please see the example below, where we define two buttons with their respective 
       links: {
         actions: [
           {
+            type: "transaction",
             label: "Deposit SOL",
             href: `${pathActions}?action=deposit&amount={amount}`,
             parameters: [
@@ -134,6 +135,7 @@ Please see the example below, where we define two buttons with their respective 
             ],
           },
           {
+            type: "transaction",
             label: "Withdraw SOL",
             href: `${pathActions}?action=withdraw&amount={amount}`,
             parameters: [
@@ -370,6 +372,7 @@ The complete `route.ts` includes both GET and POST handlers, along with the vali
       links: {
         actions: [
           {
+            type: "transaction",
             label: "Deposit SOL",
             href: `${pathActions}?action=deposit&amount={amount}`,
             parameters: [
@@ -380,6 +383,7 @@ The complete `route.ts` includes both GET and POST handlers, along with the vali
             ],
           },
           {
+            type: "transaction",
             label: "Withdraw SOL",
             href: `${pathActions}?action=withdraw&amount={amount}`,
             parameters: [

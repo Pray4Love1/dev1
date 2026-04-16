@@ -18,8 +18,8 @@ See also [Solana: Listening to pump.fun token mint using only logsSubscribe](/do
 This article is an add-on for two scripts:
 
 <CardGroup>
-  <Card title="check_boding_curve_status.py" href="https://github.com/chainstacklabs/pump-fun-bot/blob/main/learning-examples/check_boding_curve_status.py" icon="angle-right" horizontal />
-  <Card title="listen_to_raydium_migration.py" href="https://github.com/chainstacklabs/pump-fun-bot/blob/main/learning-examples/listen_to_raydium_migration.py" icon="angle-right" horizontal />
+  <Card title="get_bonding_curve_status.py" href="https://github.com/chainstacklabs/pump-fun-bot/blob/main/learning-examples/bonding-curve-progress/get_bonding_curve_status.py" icon="angle-right" horizontal />
+  <Card title="listen_logsubscribe.py" href="https://github.com/chainstacklabs/pump-fun-bot/blob/main/learning-examples/listen-migrations/listen_logsubscribe.py" icon="angle-right" horizontal />
 </CardGroup>
 
 This guide shows you how to track the lifecycle of pump.fun tokens from their initial bonding curve state through migration to Raydium using Python scripts.
@@ -60,18 +60,18 @@ After migration, trading moves from the bonding curve mechanism to Raydium's tra
 
 This guide covers two essential scripts for tracking this migration process:
 
-1. `check_boding_curve_status.py` - Checks if a token is still on the bonding curve or ready for migration
-2. `listen_to_raydium_migration.py` - Monitors real-time migrations to Raydium
+1. `get_bonding_curve_status.py` — checks if a token is still on the bonding curve or ready for migration
+2. `listen_logsubscribe.py` — monitors real-time migrations to Raydium
 
 ### Checking bonding curve status
 
-The `check_boding_curve_status.py` script lets you check if a token's bonding curve is still active or has completed and is ready for Raydium migration.
+The `get_bonding_curve_status.py` script lets you check if a token's bonding curve is still active or has completed and is ready for Raydium migration.
 
 #### Usage
 
 <CodeGroup>
   ```shell Shell
-  python check_boding_curve_status.py TOKEN_ADDRESS
+  python get_bonding_curve_status.py TOKEN_ADDRESS
   ```
 </CodeGroup>
 
@@ -117,7 +117,7 @@ For a completed bonding curve:
 
 ### Monitoring Raydium migrations
 
-The `listen_to_raydium_migration.py` script uses WebSocket subscriptions to monitor real-time migrations of tokens from pump.fun to Raydium DEX.
+The `listen_logsubscribe.py` script uses WebSocket subscriptions to monitor real-time migrations of tokens from pump.fun to Raydium DEX.
 
 The pump.fun migration account is [39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg](https://solscan.io/account/39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg).
 
@@ -133,7 +133,7 @@ Our script uses the [blockSubscribe | Solana](/reference/blocksubscribe-solana) 
 
 <CodeGroup>
   ```shell Shell
-  python listen_to_raydium_migration.py
+  python listen_logsubscribe.py
   ```
 </CodeGroup>
 

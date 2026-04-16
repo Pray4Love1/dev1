@@ -33,7 +33,7 @@ See:
 | getSignatureStatus                | [getSignatureStatuses](/reference/solana-getsignaturestatuses)                                                                                                                                                          |
 | getSignatureConfirmation          | [getSignatureStatuses](/reference/solana-getsignaturestatuses)                                                                                                                                                          |
 | getConfirmedSignaturesForAddress  | [getSignaturesForAddress](/reference/solana-getsignaturesforaddress)                                                                                                                                                    |
-| getConfirmedBlock                 | [getBlock](/reference/solana-getblocks)                                                                                                                                                                                  |
+| getConfirmedBlock                 | [getBlock](/reference/solana-getblock)                                                                                                                                                                                  |
 | getConfirmedBlocks                | [getBlocks](/reference/solana-getblocks)                                                                                                                                                                                |
 | getConfirmedBlocksWithLimit       | [getBlocksWithLimit](/reference/getblockswithlimit)                                                                                                                                                                     |
 | getConfirmedTransaction           | [getTransaction](/reference/gettransaction)                                                                                                                                                                             |
@@ -45,7 +45,7 @@ See:
 | getSnapshotSlot                   | [getHighestSnapshotSlot](/reference/solana-gethighestsnapshotslot)                                                                                                                                                      |
 | getStakeActivation                | [getAccountInfo \| Solana](/reference/solana-getaccountinfo) ([alternative approach](https://solana.stackexchange.com/questions/15710/the-alternative-method-to-get-the-stake-account-status-since-getstakeactivation)) |
 
-## Replacing `confirmTransaction` with `getSignaturesStatuses`
+## Replacing `confirmTransaction` with `getSignatureStatuses`
 
 <CodeGroup>
   ```javascript @solana/web3.js
@@ -127,7 +127,7 @@ See:
 
   ```python solana.py
   from solana.rpc.api import Client
-  from solana.transaction import Transaction
+  from solders.transaction import Transaction
   from solana.rpc.commitment import Commitment
   from typing import Optional, List, Union
   import time
@@ -164,15 +164,15 @@ See:
 
       # Send the transaction
       try:
+          from solana.rpc.types import TxOpts
           response = client.send_transaction(
               transaction,
-              *signers,
-              opts={
-                  "skip_preflight": False,
-                  "preflight_commitment": commitment
-              }
+              opts=TxOpts(
+                  skip_preflight=False,
+                  preflight_commitment=commitment
+              )
           )
-          signature = response["result"]
+          signature = str(response.value)
       except Exception as e:
           raise TransactionConfirmationError(f"Failed to send transaction: {str(e)}")
 
@@ -189,21 +189,21 @@ See:
                   # Get transaction status
                   response = client.get_signature_statuses([signature])
 
-                  if response["result"]["value"][0] is None:
+                  if response.value[0] is None:
                       # Transaction not yet processed, wait and retry
                       await asyncio.sleep(1)
                       continue
 
-                  status = response["result"]["value"][0]
+                  status = response.value[0]
 
                   # Check if transaction failed
-                  if status.get("err"):
+                  if status.err:
                       raise TransactionConfirmationError(
-                          f"Transaction failed: {status['err']}"
+                          f"Transaction failed: {status.err}"
                       )
 
                   # Check confirmation status
-                  conf_status = status.get("confirmationStatus")
+                  conf_status = status.confirmation_status
                   if conf_status == "finalized":
                       return signature
 

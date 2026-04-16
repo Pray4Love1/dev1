@@ -1,0 +1,287 @@
+---
+title: "Solana: Address lookup tables"
+description: Use address lookup tables to fit more accounts into Solana transactions and overcome the 1232-byte size limit when building complex multi-instruction transactions.
+---
+
+**TLDR:**
+* Solana transactions are capped at 1232 bytes, which limits the number of accounts a single transaction can reference.
+* Address lookup tables (ALTs) let you store frequently used addresses on-chain and reference them by index instead of including the full 32-byte public key in every transaction.
+* With ALTs, a versioned transaction (v0) can reference up to 256 accounts per table—enough for complex DeFi interactions, Jupiter swaps, and multi-program calls.
+* This guide walks you through creating a lookup table, adding addresses, and using it in a versioned transaction.
+
+## Why you need address lookup tables
+
+Every Solana transaction has a hard 1232-byte size limit. Each account address takes 32 bytes, so a transaction with ~30 accounts already exhausts most of the budget before adding instructions. You will hit this limit when:
+
+* Performing Jupiter or Raydium swaps that route through multiple pools
+* Building multi-instruction transactions (swap + transfer + memo)
+* Interacting with programs that require many accounts (Serum/OpenBook order books, Meteora DLMM)
+
+The error looks like:
+
+```
+Transaction too large: XXXX > 1232
+```
+
+Address lookup tables solve this by storing addresses on-chain. Instead of embedding the full 32-byte key, the transaction references a table address and a 1-byte index—saving 31 bytes per account.
+
+<Check>
+### Get your own node endpoint today
+
+  [Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+  You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Prerequisites
+
+* A Chainstack Solana node endpoint. [Deploy one](https://console.chainstack.com/).
+* Node.js 18+
+* A funded Solana wallet (creating a lookup table costs ~0.003 SOL in rent)
+
+### Project setup
+
+```bash
+mkdir solana-alt && cd solana-alt
+npm init -y
+npm install @solana/web3.js dotenv
+npm install --save-dev ts-node typescript
+npx tsc --init
+touch main.ts .env
+```
+
+Add your credentials to `.env`:
+
+```
+SOLANA_RPC=YOUR_CHAINSTACK_ENDPOINT
+PRIVATE_KEY=your_base58_private_key
+```
+
+## Create a lookup table
+
+A lookup table is an on-chain account that holds a list of public keys. You create one with `createLookupTable`, which returns the table address and a creation instruction.
+
+<CodeGroup>
+  ```typescript TypeScript
+  import {
+    Connection,
+    Keypair,
+    AddressLookupTableProgram,
+    TransactionMessage,
+    VersionedTransaction,
+  } from "@solana/web3.js";
+  import bs58 from "bs58";
+  import "dotenv/config";
+
+  const connection = new Connection(process.env.SOLANA_RPC!);
+  const payer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY!));
+
+  async function createLookupTable(): Promise<string> {
+    const slot = await connection.getSlot();
+
+    const [createInstruction, lookupTableAddress] =
+      AddressLookupTableProgram.createLookupTable({
+        authority: payer.publicKey,
+        payer: payer.publicKey,
+        recentSlot: slot,
+      });
+
+    const latestBlockhash = await connection.getLatestBlockhash();
+
+    const message = new TransactionMessage({
+      payerKey: payer.publicKey,
+      recentBlockhash: latestBlockhash.blockhash,
+      instructions: [createInstruction],
+    }).compileToV0Message();
+
+    const transaction = new VersionedTransaction(message);
+    transaction.sign([payer]);
+
+    const txid = await connection.sendTransaction(transaction);
+    await connection.confirmTransaction({
+      signature: txid,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    });
+
+    console.log("Lookup table created:", lookupTableAddress.toBase58());
+    console.log("Transaction:", txid);
+
+    return lookupTableAddress.toBase58();
+  }
+
+  createLookupTable();
+  ```
+</CodeGroup>
+
+Run with:
+
+```bash
+ts-node main.ts
+```
+
+## Extend the lookup table
+
+After creation, add the addresses you need to reference in your transactions. You can add up to 30 addresses per `extendLookupTable` instruction (limited by transaction size), and a table can hold up to 256 entries total.
+
+<CodeGroup>
+  ```typescript TypeScript
+  import {
+    Connection,
+    Keypair,
+    PublicKey,
+    AddressLookupTableProgram,
+    TransactionMessage,
+    VersionedTransaction,
+  } from "@solana/web3.js";
+  import bs58 from "bs58";
+  import "dotenv/config";
+
+  const connection = new Connection(process.env.SOLANA_RPC!);
+  const payer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY!));
+
+  // Replace with your lookup table address from the previous step
+  const LOOKUP_TABLE_ADDRESS = new PublicKey("YOUR_LOOKUP_TABLE_ADDRESS");
+
+  async function extendLookupTable() {
+    // Add the addresses you frequently use in transactions
+    const addressesToAdd = [
+      new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),     // Token Program
+      new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"),    // Associated Token Program
+      new PublicKey("11111111111111111111111111111111"),                   // System Program
+      new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),    // USDC mint
+      new PublicKey("So11111111111111111111111111111111111111112"),        // Wrapped SOL
+      // Add more addresses as needed for your use case
+    ];
+
+    const extendInstruction = AddressLookupTableProgram.extendLookupTable({
+      payer: payer.publicKey,
+      authority: payer.publicKey,
+      lookupTable: LOOKUP_TABLE_ADDRESS,
+      addresses: addressesToAdd,
+    });
+
+    const latestBlockhash = await connection.getLatestBlockhash();
+
+    const message = new TransactionMessage({
+      payerKey: payer.publicKey,
+      recentBlockhash: latestBlockhash.blockhash,
+      instructions: [extendInstruction],
+    }).compileToV0Message();
+
+    const transaction = new VersionedTransaction(message);
+    transaction.sign([payer]);
+
+    const txid = await connection.sendTransaction(transaction);
+    await connection.confirmTransaction({
+      signature: txid,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    });
+
+    console.log("Lookup table extended with", addressesToAdd.length, "addresses");
+    console.log("Transaction:", txid);
+  }
+
+  extendLookupTable();
+  ```
+</CodeGroup>
+
+<Warning>
+  After extending a lookup table, you must **wait for the next slot** before using it in a transaction. The newly added addresses are not available in the same slot they were added.
+</Warning>
+
+## Use the lookup table in a transaction
+
+Once the table is populated, pass it as an address lookup table when compiling your versioned transaction message. The runtime resolves the indices at execution time.
+
+<CodeGroup>
+  ```typescript TypeScript
+  import {
+    Connection,
+    Keypair,
+    PublicKey,
+    SystemProgram,
+    TransactionMessage,
+    VersionedTransaction,
+  } from "@solana/web3.js";
+  import bs58 from "bs58";
+  import "dotenv/config";
+
+  const connection = new Connection(process.env.SOLANA_RPC!);
+  const payer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY!));
+
+  const LOOKUP_TABLE_ADDRESS = new PublicKey("YOUR_LOOKUP_TABLE_ADDRESS");
+
+  async function sendWithLookupTable() {
+    // Fetch the lookup table account
+    const lookupTableAccount = (
+      await connection.getAddressLookupTable(LOOKUP_TABLE_ADDRESS)
+    ).value;
+
+    if (!lookupTableAccount) {
+      throw new Error("Lookup table not found");
+    }
+
+    console.log(
+      "Lookup table has",
+      lookupTableAccount.state.addresses.length,
+      "addresses"
+    );
+
+    // Build your instructions as usual
+    const instructions = [
+      SystemProgram.transfer({
+        fromPubkey: payer.publicKey,
+        toPubkey: payer.publicKey,
+        lamports: 1000,
+      }),
+      // Add more instructions that reference accounts in the lookup table
+    ];
+
+    const latestBlockhash = await connection.getLatestBlockhash();
+
+    // Pass the lookup table when compiling — this is the key step
+    const message = new TransactionMessage({
+      payerKey: payer.publicKey,
+      recentBlockhash: latestBlockhash.blockhash,
+      instructions,
+    }).compileToV0Message([lookupTableAccount]);
+
+    const transaction = new VersionedTransaction(message);
+    transaction.sign([payer]);
+
+    const txid = await connection.sendTransaction(transaction);
+    await connection.confirmTransaction({
+      signature: txid,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    });
+
+    console.log("Transaction with lookup table:", txid);
+  }
+
+  sendWithLookupTable();
+  ```
+</CodeGroup>
+
+The critical line is `.compileToV0Message([lookupTableAccount])` — this tells the runtime to resolve account references from the lookup table instead of embedding full public keys.
+
+## When to use address lookup tables
+
+| Scenario | Without ALT | With ALT |
+| -------- | ----------- | -------- |
+| Simple SOL transfer (2 accounts) | Works fine | Not needed |
+| SPL token transfer (5–7 accounts) | Usually fits | Not needed |
+| Jupiter swap (15–25 accounts) | Likely exceeds 1232 bytes | Required |
+| Multi-hop swap + transfer + memo (30+ accounts) | Always exceeds 1232 bytes | Required |
+
+<Tip>
+  If you use the same set of accounts repeatedly (e.g., the same token pair, the same DEX pool), create the lookup table once and reuse it across all your transactions. The table persists on-chain until you explicitly close it.
+</Tip>
+
+## Additional resources
+
+* [Solana documentation on address lookup tables](https://solana.com/docs/advanced/lookup-tables)
+* [Versioned transactions](/docs/solana-how-to-priority-fees-faster-transactions) — priority fees guide uses v0 transactions
+* [Transaction expiry handling](/docs/solana-how-to-handle-the-transaction-expiry-error) — retry logic for transactions using ALTs
