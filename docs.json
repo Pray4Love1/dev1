@@ -1133,6 +1133,7 @@
                   "docs/migrating-from-syndica-to-chainstack",
                   "docs/solana-how-to-perform-token-swaps-using-the-raydium-sdk",
                   "docs/solana-how-to-build-actions-and-blinks",
+                  "docs/solana-program-derived-addresses-and-cross-program-invocations",
                   "docs/solana-token-extensions",
                   "docs/solana-tutorial-creating-a-token-and-vesting-the-token-in-your-program",
                   "docs/transferring-spl-tokens-on-solana-typescript",
