@@ -30,9 +30,13 @@ You can sign up with your GitHub, Twitter, Google, or Microsoft account.
 
 The response is an array of objects, where each object represents a prioritization fee observed in a recent slot (block). Each object has the following properties:
 
-* `slot` — the specific slot (or block) on the Solana blockchain where the transactions associated with the prioritization fees were processed.
-* `prioritizationFee` — the fee amount paid by at least one transaction within the specified slot to achieve prioritized processing. Specified in [micro-lamports](/docs/solana-glossary#micro-lamports).
+* `slot` (u64) — the slot where the transactions associated with the prioritization fees were processed.
+* `prioritizationFee` (u64) — the fee in micro-lamports **per compute unit** paid by at least one transaction within the specified slot to achieve prioritized processing.
+
+The node's prioritization-fee cache stores data from the most recent 150 blocks.
+
+When account addresses are provided, the response reflects fees observed for transactions that locked **all** of the supplied accounts as writable simultaneously — not just any of them. If you omit the `params` array entirely, the response returns unfiltered samples across all transactions.
 
 ## Use case
 
-A practical use case for `getRecentPrioritizationFees` is to understand the current prioritization fee trends in the network. This information can be useful for wallets or other applications that need to determine an appropriate prioritization fee for their transactions. An application can choose a fee level that balances transaction priority and cost by analyzing the recent prioritization fees.
+A practical use case for `getRecentPrioritizationFees` is to determine an appropriate priority fee for your transactions. By querying recent fees for the specific accounts your transaction will lock, you get a realistic picture of what competing transactions are paying. See also [Estimate priority fees with getRecentPrioritizationFees](/docs/solana-estimate-priority-fees-getrecentprioritizationfees) for a practical implementation guide.
