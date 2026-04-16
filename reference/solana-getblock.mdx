@@ -14,7 +14,7 @@ The Solana `getBlock` method returns complete information about a block for a gi
 <Note>
 **Block & slot confusion**
 
-You need to provide the slot number in the [getBlock](/reference/solana-getblocks) method. For a detailed explanation with examples, see [Understanding the difference between blocks and slots on Solana](/docs/understanding-the-difference-between-blocks-and-slots-on-solana).
+You need to provide the slot number in the [getBlock](/reference/solana-getblock) method. For a detailed explanation with examples, see [Understanding the difference between blocks and slots on Solana](/docs/understanding-the-difference-between-blocks-and-slots-on-solana).
 </Note>
 
 
@@ -31,22 +31,45 @@ You can sign up with your GitHub, X, Google, or Microsoft account.
 
 ## Parameters
 
-* `block` — the height of **the slot** to retrieve information for.
-* `commitment` — `confirmed` or `finalized`. `processed` is not supported.
-* `transactionDetails` — level of transaction details.
-* `maxSupportedTransactionVersion` — for transaction versioning
-* `rewards` — block rewards that go to validators.
+1. `slot` (u64, required) — the slot number to retrieve the block for.
+2. `config` (object, optional) — configuration object containing:
+   * `commitment` (string) — `confirmed` or `finalized`. Note: `processed` is not supported by this method.
+   * `encoding` (string) — encoding for transaction data. Values:
+     * `json` — parsed JSON with transaction message and meta (default).
+     * `jsonParsed` — attempts to decode known program instructions into human-readable JSON. Falls back to standard JSON for unrecognized programs.
+     * `base64` — raw transaction bytes as base64.
+     * `base58` — raw transaction bytes as base58 (slow).
+   * `transactionDetails` (string) — level of transaction detail:
+     * `full` — returns complete transaction objects (default).
+     * `accounts` — returns only account keys with `signer`, `writable`, and `source` annotations plus a restricted `meta` (only `fee`, `err`, `preBalances`, `postBalances`, `preTokenBalances`, `postTokenBalances`, `rewards`).
+     * `signatures` — returns only the `signatures` array (no `transactions` field). Lightest option.
+     * `none` — omits both `transactions` and `signatures`.
+   * `maxSupportedTransactionVersion` (integer) — set to `0` to include versioned (v0) transactions in the response. Omitting this field causes an error if the block contains any v0 transactions.
+   * `rewards` (boolean) — include block rewards. Default: `true`.
 
 ## Response
 
-* `blockHeight` — the actual block number produced in the slot.
-* `blockTime` — Unix timestamp of the block. Also note that this is the timestamp agreed upon by the cluster validators. Most of the time, it doesn't matter that much but still important to know.
-* `blockhash` — the hash of the block.
-* `parentSlot` — the slot of the block's parent.
-* `previousBlockhash` — the hash of the block's parent.
-* `rewards` — an array of reward objects that were awarded when the block was processed.
-* `transactions` — an array of transaction objects that were processed in the block.
+* `blockHeight` (u64, nullable) — the actual block number produced in this slot.
+* `blockTime` (i64, nullable) — estimated Unix timestamp of the block, as agreed upon by cluster validators.
+* `blockhash` (string) — the hash of this block.
+* `parentSlot` (u64) — the slot of the block's parent.
+* `previousBlockhash` (string) — the hash of the parent block.
+* `transactions` — an array of transaction objects (when `transactionDetails` is `full` or `accounts`). Each object contains:
+  * `transaction` — the transaction data in the requested encoding.
+  * `meta` — transaction metadata including:
+    * `err` — error if the transaction failed, null on success.
+    * `fee` (u64) — fee charged for the transaction.
+    * `preBalances` / `postBalances` — arrays of lamport balances before and after.
+    * `preTokenBalances` / `postTokenBalances` — token balance changes.
+    * `logMessages` — array of log strings produced by the transaction.
+    * `innerInstructions` — inner instructions invoked via CPI.
+    * `loadedAddresses` — addresses loaded from address lookup tables (`writable` and `readonly` arrays).
+    * `computeUnitsConsumed` (u64) — compute units used.
+    * `returnData` — data returned via `sol_set_return_data`, if any.
+  * `version` — `"legacy"` or `0` for versioned transactions.
+* `signatures` — an array of signature strings (only present when `transactionDetails` is `signatures`).
+* `rewards` — an array of reward objects, each containing: `pubkey`, `lamports`, `postBalance`, `rewardType` (`fee`, `rent`, `voting`, `staking`), and `commission` (for voting/staking rewards).
 
 ## Use case
 
-A practical use case for `getBlock` is to retrieve detailed information about a specific block. This can be useful for block explorers, wallets, or other applications that need to display or make use of this information.
+A practical use case for `getBlock` is to retrieve detailed information about a specific block for block explorers, analytics pipelines, or indexing services. Use `transactionDetails: "signatures"` for lightweight block scanning, and `jsonParsed` encoding for human-readable instruction decoding without manual deserialization.

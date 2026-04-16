@@ -18,21 +18,33 @@ You can sign up with your GitHub, X, Google, or Microsoft account.
 
 ## Parameters
 
-* `publicKey` — the public key of the account to retrieve information for.
-* `commitment` — (optional) the level of commitment desired:
-  + `processed` — the node has processed the block and the block may be on a fork.
-  + `confirmed` — the block is confirmed by the cluster as not being on a fork.
-  + `finalized` — the block is finalized by the cluster.
+1. `pubkey` (string, required) — the base-58 encoded public key of the account to query.
+2. `config` (object, optional) — configuration object containing:
+   * `commitment` (string) — the level of commitment desired:
+     * `processed` — the node has processed the block and the block may be on a fork.
+     * `confirmed` — the block is confirmed by the cluster as not being on a fork.
+     * `finalized` — the block is finalized by the cluster.
+   * `encoding` (string) — encoding for the account data. Values:
+     * `base64` — raw bytes as a base64 string (default).
+     * `base58` — raw bytes as a base58 string (slow for large data).
+     * `base64+zstd` — zstd-compressed base64.
+     * `jsonParsed` — returns parsed JSON for known account types (token accounts, nonce accounts, vote accounts, stake accounts, etc.). Falls back to `base64` for unknown programs.
+   * `dataSlice` (object) — request a slice of the account's data. Contains `offset` (byte offset) and `length` (number of bytes). Only available for non-`jsonParsed` encodings.
+   * `minContextSlot` (integer) — the minimum slot at which the request can be evaluated.
 
 ## Response
 
-* `value` — the account information:
-  + `lamports` — the account's current balance.
-  + `owner` — the public key of the program that owns the account.
-  + `executable` — whether the account is marked as executable.
-  + `rentEpoch` — the epoch at which this account will next owe rent.
-  + `data` — the account's data, represented as a base64 string.
+* `context` — an object containing `slot` and `apiVersion`.
+* `value` — the account information (null if the account does not exist):
+  * `lamports` (u64) — the account's current balance in lamports.
+  * `owner` (string) — the base-58 encoded public key of the program that owns the account.
+  * `executable` (boolean) — whether the account is marked as executable.
+  * `rentEpoch` (u64) — the epoch at which this account will next owe rent.
+  * `data` — the account's data in the requested encoding:
+    * Default: `[data, encoding]` tuple (e.g., `["base64data...", "base64"]`).
+    * With `jsonParsed`: a `{program, parsed, space}` object. The `program` field identifies the owning program (`spl-token`, `spl-token-2022`, `nonce`, `stake`, `vote`, etc.) and `parsed` contains the decoded account state.
+  * `space` (u64) — the data size of the account in bytes.
 
 ## Use case
 
-A practical use case for `getAccountInfo` is to retrieve the current balance of a Solana account. This can be useful for wallets or other applications that need to display or make use of this information.
+A practical use case for `getAccountInfo` is to retrieve the current state of any Solana account — balances, token account data, program state, or nonce accounts. Using `jsonParsed` encoding is especially useful for token accounts, as it returns the mint, owner, balance, delegate, and state without manual deserialization.
