@@ -65,38 +65,28 @@ The following limits are applied on all subscription plans:
 
 ## Solana method limits
 
-The following limits are applied:
+The following per-method RPS limits apply identically across all regions:
 
-- `getBlocks`: 500,000 blocks range. This is the [Solana architecture limit](https://solana.com/docs/rpc/http/getblocks).
-- `getBlocksWithLimit`: 500,000 blocks range. This is the [Solana architecture limit](https://solana.com/docs/rpc/http/getblockswithlimit).
-- `getBlock`:
-  - Chainstack Global Network Worldwide `global1` RPS: 100
-  - Chainstack Cloud London `lon1` RPS: 100
-  - Chainstack Cloud New York City `nyc1` RPS: 100
-- `getBlockTime`:
-  - Chainstack Global Network Worldwide `global1` RPS: 100
-  - Chainstack Cloud London `lon1` RPS: 100
-  - Chainstack Cloud New York City `nyc1` RPS: 100
-- [`getProgramAccounts`](/reference/solana-getprogramaccounts) — unfiltered requests to large programs are blocked; always use `dataSize` or `memcmp` filters:
-  - Chainstack Global Network `global1` RPS: 3
-  - Chainstack Cloud London `lon1` RPS: 10
-  - Chainstack Cloud New York City `nyc1` RPS: 3
-- `getConfirmedBlock`:
-  - Chainstack Global Network `global1` RPS: 30
-  - Chainstack Cloud London `lon1` RPS: 30
-  - Chainstack Cloud New York City `nyc1` RPS: 30
-- `getSupply`:
-  - Chainstack Global Network Worldwide `global1` RPS: 2
-  - Chainstack Cloud London `lon1` RPS: 2
-  - Chainstack Cloud New York City `nyc1` RPS: 2
-- `getTokenAccountsByOwner`:
-  - Chainstack Global Network Worldwide `global1` RPS: 100
-  - Chainstack Cloud London `lon1` RPS: 100
-  - Chainstack Cloud New York City `nyc1` RPS: 100
-- `getTokenSupply`:
-  - Chainstack Global Network Worldwide `global1` RPS: 80
-  - Chainstack Cloud London `lon1` RPS: 80
-  - Chainstack Cloud New York City `nyc1` RPS: 80
+| Method | RPS |
+| ------ | --- |
+| `getBlockTime` | 500 |
+| `getBlock` | 400 |
+| `getTokenSupply` | 300 |
+| `getTokenAccountsByOwner` | 80 |
+| `getConfirmedBlock` | 30 |
+| `getSupply` | 2 |
+| `getLargestAccounts` | 0 — available on [Dedicated Nodes](/docs/dedicated-node) only |
+
+[`getProgramAccounts`](/reference/solana-getprogramaccounts) — unfiltered requests to large programs are blocked; always use `dataSize` or `memcmp` filters:
+
+- Chainstack Global Network `global1` RPS: 3
+- Chainstack Cloud London `lon1` RPS: 10
+- Chainstack Cloud New York City `nyc1` RPS: 3
+
+Architectural limits (set by Solana, not Chainstack):
+
+- `getBlocks`: 500,000 blocks range — [Solana architecture limit](https://solana.com/docs/rpc/http/getblocks).
+- `getBlocksWithLimit`: 500,000 blocks range — [Solana architecture limit](https://solana.com/docs/rpc/http/getblockswithlimit).
 
 ## Solana accounts excluded from indexing
 
