@@ -1,0 +1,689 @@
+---
+title: "Solana: Program derived addresses and cross-program invocations"
+description: How Solana PDAs and CPIs work — deriving deterministic addresses with seeds and bumps, creating PDA accounts, calling other programs with invoke and invoke_signed, and using Anchor constraints for PDAs and CPIs.
+---
+
+**TLDR:**
+* A Program Derived Address (PDA) is a 32-byte address derived deterministically from seeds and a program ID. No private key exists for it — only the deriving program can sign on its behalf.
+* PDAs enable deterministic addressing (same seeds = same address), program-owned authority (vault patterns), and user-scoped state (one account per user).
+* A Cross-Program Invocation (CPI) is when one program calls an instruction on another program during execution. Use `invoke` when no PDA signing is needed, `invoke_signed` when the calling program must sign as a PDA.
+* Anchor simplifies both with `seeds`/`bump` constraints for PDAs and `CpiContext` for CPIs.
+
+## Program derived addresses
+
+On Solana, programs are stateless. All data lives in accounts, and accounts are identified by their 32-byte address. A regular keypair account has a public key (the address) and a private key (used to sign transactions). A PDA is different: it's an address that is guaranteed to **not** lie on the Ed25519 curve, which means no private key exists for it. Only the program that derived the PDA can authorize operations on it.
+
+This design enables two things that would be impossible with keypair accounts:
+
+1. **Deterministic addressing** — the same seeds and program ID always produce the same address. You can derive a user's vault address from their wallet pubkey without storing it anywhere.
+2. **Program-controlled authority** — the program can sign on behalf of the PDA during a cross-program invocation, making the PDA act as a trustless escrow, vault, or authority account.
+
+### How derivation works
+
+PDA derivation uses SHA-256. The inputs are:
+
+1. **Optional seeds** — up to 16 byte arrays (max 32 bytes each) that you define. These could be strings, public keys, integers, or a combination.
+2. **Program ID** — the address of the program that owns the PDA.
+3. **The string `"ProgramDerivedAddress"`** — a constant marker appended by the runtime.
+4. **Bump seed** — a single byte (0–255) appended to the seeds to push the hash result off the Ed25519 curve.
+
+The algorithm hashes all of these together with SHA-256 and checks whether the result is a valid Ed25519 point. If it is on the curve (meaning a private key could exist), the bump is decremented and the hash is tried again. The first bump value that produces an off-curve address is the **canonical bump**.
+
+`findProgramAddress` starts at bump 255 and decrements until it finds a valid PDA. Always use the canonical bump — using a non-canonical bump creates a second valid address for the same seeds, which can lead to vulnerabilities.
+
+### Limits
+
+| Limit | Value |
+|-------|-------|
+| Max seeds per derivation | 16 |
+| Max bytes per seed | 32 |
+| Bump range | 0–255 |
+| `create_program_address` cost | 1,500 CUs |
+| `find_program_address` worst-case cost | 1,500 + (1,500 × iterations) |
+| Max PDA signers per CPI | 16 |
+
+### Deriving a PDA client-side
+
+Deriving a PDA is a read-only operation. It computes an address but does not create an account.
+
+<CodeGroup>
+```typescript TypeScript
+import {
+  Connection,
+  PublicKey
+} from "@solana/web3.js";
+
+const CHAINSTACK_ENDPOINT = "CHAINSTACK_NODE_URL";
+const connection = new Connection(CHAINSTACK_ENDPOINT);
+
+// The program that owns the PDA
+const programId = new PublicKey("11111111111111111111111111111111");
+
+// Derive with a string seed
+const [pda, bump] = PublicKey.findProgramAddressSync(
+  [Buffer.from("vault")],
+  programId
+);
+console.log(`PDA: ${pda.toBase58()}`);
+console.log(`Bump: ${bump}`);
+
+// Derive with a user-specific seed
+const userWallet = new PublicKey("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka");
+const [userPda, userBump] = PublicKey.findProgramAddressSync(
+  [Buffer.from("user_data"), userWallet.toBuffer()],
+  programId
+);
+console.log(`User PDA: ${userPda.toBase58()}`);
+console.log(`User bump: ${userBump}`);
+```
+```python Python
+from solders.pubkey import Pubkey
+
+# The program that owns the PDA
+program_id = Pubkey.from_string("11111111111111111111111111111111")
+
+# Derive with a string seed
+pda, bump = Pubkey.find_program_address([b"vault"], program_id)
+print(f"PDA: {pda}")
+print(f"Bump: {bump}")
+
+# Derive with a user-specific seed
+user_wallet = Pubkey.from_string("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")
+user_pda, user_bump = Pubkey.find_program_address(
+    [b"user_data", bytes(user_wallet)],
+    program_id,
+)
+print(f"User PDA: {user_pda}")
+print(f"User bump: {user_bump}")
+```
+</CodeGroup>
+
+### Common seed patterns
+
+| Pattern | Seeds | Use case |
+|---------|-------|----------|
+| Global singleton | `["global"]` | Single config account for the entire program |
+| Per-user account | `["user", user_pubkey]` | One account per user per program |
+| Per-user-per-token | `["vault", user_pubkey, mint_pubkey]` | Token vaults scoped to both user and mint |
+| Sequential record | `["order", user_pubkey, &order_id.to_le_bytes()]` | Numbered records per user |
+
+<Warning>
+Seeds are concatenated before hashing. This means `["ab", "cd"]` and `["abcd"]` produce the same PDA. Use fixed-length seeds or a separator to avoid collisions.
+</Warning>
+
+### Real-world example: Associated Token Accounts
+
+The Associated Token Account (ATA) program is the most widely used PDA on Solana. Every ATA address is derived from three seeds:
+
+```rust
+Pubkey::find_program_address(
+    &[
+        &wallet_address.to_bytes(),
+        &token_program_id.to_bytes(),
+        &token_mint_address.to_bytes(),
+    ],
+    &associated_token_program_id,
+)
+```
+
+This means for any given wallet, token mint, and token program, there is exactly one deterministic ATA address. No lookup table needed — any client can derive it.
+
+<Note>
+Token-2022 mints use `TOKEN_2022_PROGRAM_ID` instead of `TOKEN_PROGRAM_ID` in the seeds. This produces a different ATA address for the same wallet and mint. Always use the correct token program ID for the mint you're working with.
+</Note>
+
+<CodeGroup>
+```typescript TypeScript
+import {
+  PublicKey
+} from "@solana/web3.js";
+import {
+  getAssociatedTokenAddressSync,
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+const wallet = new PublicKey("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka");
+const usdcMint = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+// The helper derives the PDA under the hood
+const ata = getAssociatedTokenAddressSync(usdcMint, wallet);
+console.log(`ATA: ${ata.toBase58()}`);
+
+// Equivalent manual derivation
+const [manualAta] = PublicKey.findProgramAddressSync(
+  [
+    wallet.toBuffer(),
+    TOKEN_PROGRAM_ID.toBuffer(),
+    usdcMint.toBuffer(),
+  ],
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+);
+console.log(`Manual ATA: ${manualAta.toBase58()}`);
+console.log(`Match: ${ata.equals(manualAta)}`);
+```
+```python Python
+from solders.pubkey import Pubkey
+
+ASSOCIATED_TOKEN_PROGRAM_ID = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+
+wallet = Pubkey.from_string("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")
+usdc_mint = Pubkey.from_string("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+
+ata, bump = Pubkey.find_program_address(
+    [bytes(wallet), bytes(TOKEN_PROGRAM_ID), bytes(usdc_mint)],
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+)
+print(f"ATA: {ata}")
+print(f"Bump: {bump}")
+```
+</CodeGroup>
+
+### Verifying a PDA on chain
+
+To verify that an on-chain account is the expected PDA, re-derive the address from the known seeds and program ID, then compare it to the account's address. Fetching account info alone does not prove PDA validity.
+
+<CodeGroup>
+```typescript TypeScript
+import {
+  Connection,
+  PublicKey
+} from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_PROGRAM_ID
+} from "@solana/spl-token";
+
+const CHAINSTACK_ENDPOINT = "CHAINSTACK_NODE_URL";
+const connection = new Connection(CHAINSTACK_ENDPOINT);
+
+// Known inputs
+const wallet = new PublicKey("vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg");
+const usdcMint = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+// Re-derive the expected ATA address from seeds
+const [expectedAta] = PublicKey.findProgramAddressSync(
+  [wallet.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), usdcMint.toBuffer()],
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+);
+
+// Fetch the account and verify the address matches
+const accountInfo = await connection.getAccountInfo(expectedAta);
+if (accountInfo) {
+  console.log(`ATA exists at expected PDA: ${expectedAta.toBase58()}`);
+  console.log(`Owner program: ${accountInfo.owner.toBase58()}`);
+  console.log(`Data length: ${accountInfo.data.length} bytes`);
+} else {
+  console.log(`No account at derived ATA: ${expectedAta.toBase58()}`);
+}
+```
+```python Python
+from solana.rpc.api import Client
+from solders.pubkey import Pubkey
+
+client = Client("CHAINSTACK_NODE_URL")
+
+ASSOCIATED_TOKEN_PROGRAM_ID = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+
+wallet = Pubkey.from_string("vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg")
+usdc_mint = Pubkey.from_string("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+
+# Re-derive the expected ATA address from seeds
+expected_ata, bump = Pubkey.find_program_address(
+    [bytes(wallet), bytes(TOKEN_PROGRAM_ID), bytes(usdc_mint)],
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+)
+
+# Fetch and verify
+resp = client.get_account_info(expected_ata)
+if resp.value:
+    info = resp.value
+    print(f"ATA exists at expected PDA: {expected_ata}")
+    print(f"Owner program: {info.owner}")
+    print(f"Data length: {len(info.data)} bytes")
+else:
+    print(f"No account at derived ATA: {expected_ata}")
+```
+</CodeGroup>
+
+<Check>
+### Get your own node endpoint today
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Creating PDA accounts in Anchor
+
+Deriving a PDA and creating an account at that PDA are separate operations. Derivation just computes the address. Creating the account allocates on-chain space and pays rent.
+
+In Anchor, you use the `init` constraint with `seeds` and `bump` to create a PDA account. Under the hood, Anchor calls the System Program's `create_account` instruction via `invoke_signed`.
+
+```rust
+use anchor_lang::prelude::*;
+
+declare_id!("YourProgramId11111111111111111111111111111");
+
+#[program]
+pub mod pda_example {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let account = &mut ctx.accounts.user_account;
+        account.user = ctx.accounts.user.key();
+        account.bump = ctx.bumps.user_account;
+        account.data = 0;
+        Ok(())
+    }
+
+    pub fn update(ctx: Context<Update>, new_data: u64) -> Result<()> {
+        ctx.accounts.user_account.data = new_data;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(
+        init,
+        payer = user,
+        space = 8 + UserAccount::INIT_SPACE,
+        seeds = [b"user_data", user.key().as_ref()],
+        bump,
+    )]
+    pub user_account: Account<'info, UserAccount>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct Update<'info> {
+    pub user: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"user_data", user.key().as_ref()],
+        bump = user_account.bump,
+    )]
+    pub user_account: Account<'info, UserAccount>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct UserAccount {
+    pub user: Pubkey,
+    pub bump: u8,
+    pub data: u64,
+}
+```
+
+Key points:
+
+- `init` — tells Anchor to create the account. Requires `payer` and `space`.
+- `seeds = [b"user_data", user.key().as_ref()]` — the PDA seeds. The address is deterministic from the user's wallet.
+- `bump` (without a value) — Anchor finds the canonical bump automatically.
+- `bump = user_account.bump` — on subsequent instructions, use the stored bump to save compute (avoids re-running `find_program_address`).
+- `space = 8 + UserAccount::INIT_SPACE` — 8 bytes for the Anchor discriminator + the struct size. The `InitSpace` derive macro calculates the struct size automatically.
+
+<Tip>
+Always store the bump seed in the account data. This saves 1,500 CUs on every subsequent instruction that accesses the PDA, because the program skips the `find_program_address` loop.
+</Tip>
+
+## Cross-program invocations
+
+A Cross-Program Invocation (CPI) is when one program calls an instruction on another program. This is what makes Solana programs composable — your program can transfer tokens, create accounts, or call any instruction on any deployed program.
+
+Solana provides two functions:
+
+| Function | When to use | PDA signing |
+|----------|-------------|-------------|
+| `invoke` | All signers already signed the transaction | No |
+| `invoke_signed` | The calling program needs to sign as a PDA | Yes, via signer seeds |
+
+Under the hood, `invoke` just calls `invoke_signed` with an empty signer seeds array. Both use the same runtime syscall.
+
+### CPI without PDA signing
+
+The simplest CPI: your program calls another program, and all required signers are already present in the transaction.
+
+Example: a program that wraps a SOL transfer through the System Program.
+
+```rust
+use anchor_lang::prelude::*;
+use anchor_lang::system_program::{transfer, Transfer};
+
+declare_id!("YourProgramId11111111111111111111111111111");
+
+#[program]
+pub mod sol_transfer {
+    use super::*;
+
+    pub fn transfer_sol(ctx: Context<TransferSol>, amount: u64) -> Result<()> {
+        let cpi_context = CpiContext::new(
+            ctx.accounts.system_program.key(),
+            Transfer {
+                from: ctx.accounts.sender.to_account_info(),
+                to: ctx.accounts.recipient.to_account_info(),
+            },
+        );
+        transfer(cpi_context, amount)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct TransferSol<'info> {
+    #[account(mut)]
+    pub sender: Signer<'info>,
+    #[account(mut)]
+    pub recipient: SystemAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+The Anchor `CpiContext::new` takes the target program and the accounts struct for the instruction. The `transfer` helper constructs and sends the CPI.
+
+### CPI with PDA signing
+
+When your program owns a PDA (such as a vault), it can sign for that PDA during a CPI. This is the core pattern for escrows, vaults, and program-controlled token accounts.
+
+Example: a program-controlled vault that holds SOL and allows the program to release it.
+
+```rust
+use anchor_lang::prelude::*;
+use anchor_lang::system_program::{transfer, Transfer};
+
+declare_id!("YourProgramId11111111111111111111111111111");
+
+#[program]
+pub mod vault {
+    use super::*;
+
+    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+        let recipient_key = ctx.accounts.recipient.key();
+        let bump = ctx.bumps.vault;
+        let signer_seeds: &[&[&[u8]]] = &[&[
+            b"vault",
+            recipient_key.as_ref(),
+            &[bump],
+        ]];
+
+        let cpi_context = CpiContext::new(
+            ctx.accounts.system_program.key(),
+            Transfer {
+                from: ctx.accounts.vault.to_account_info(),
+                to: ctx.accounts.recipient.to_account_info(),
+            },
+        )
+        .with_signer(signer_seeds);
+
+        transfer(cpi_context, amount)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Withdraw<'info> {
+    #[account(
+        mut,
+        seeds = [b"vault", recipient.key().as_ref()],
+        bump,
+    )]
+    pub vault: SystemAccount<'info>,
+    #[account(mut)]
+    pub recipient: SystemAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+The key difference from a regular CPI:
+
+1. Build `signer_seeds` from the PDA's seeds plus the bump.
+2. Use `CpiContext::new(...).with_signer(signer_seeds)` instead of just `CpiContext::new(...)`.
+3. The runtime verifies the seeds produce the PDA address, then adds it as a valid signer for the inner instruction.
+
+### CPI to the Token Program
+
+A common real-world CPI is transferring SPL tokens from a PDA-owned token account. This pattern is used in escrows, vesting contracts, and AMMs.
+
+```rust
+use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+
+declare_id!("YourProgramId11111111111111111111111111111");
+
+#[program]
+pub mod token_vault {
+    use super::*;
+
+    pub fn release_tokens(ctx: Context<ReleaseTokens>, amount: u64) -> Result<()> {
+        let authority_bump = ctx.bumps.vault_authority;
+        let signer_seeds: &[&[&[u8]]] = &[&[
+            b"authority",
+            &[authority_bump],
+        ]];
+
+        let cpi_context = CpiContext::new(
+            ctx.accounts.token_program.key(),
+            Transfer {
+                from: ctx.accounts.vault_token_account.to_account_info(),
+                to: ctx.accounts.recipient_token_account.to_account_info(),
+                authority: ctx.accounts.vault_authority.to_account_info(),
+            },
+        )
+        .with_signer(signer_seeds);
+
+        token::transfer(cpi_context, amount)?;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct ReleaseTokens<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        seeds = [b"authority"],
+        bump,
+    )]
+    /// CHECK: PDA used as token authority
+    pub vault_authority: UncheckedAccount<'info>,
+
+    #[account(
+        mut,
+        token::mint = token_mint,
+        token::authority = vault_authority,
+    )]
+    pub vault_token_account: Account<'info, TokenAccount>,
+
+    #[account(mut)]
+    pub recipient_token_account: Account<'info, TokenAccount>,
+
+    pub token_mint: Account<'info, anchor_spl::token::Mint>,
+    pub token_program: Program<'info, Token>,
+}
+```
+
+Key constraints:
+- `token::authority = vault_authority` — ensures the token account is controlled by the program's PDA, not an arbitrary authority.
+- `token::mint = token_mint` — binds the vault to a specific mint. Without this, an attacker could pass a vault token account for a different mint.
+- `admin: Signer` — ensures only an authorized caller can trigger the release. Without caller authorization, anyone could drain the vault.
+
+<Warning>
+This example demonstrates the pattern. A production implementation should add additional checks such as an admin allowlist stored in a config PDA, amount caps, and timelocks.
+</Warning>
+
+### CPI limits
+
+| Limit | Value |
+|-------|-------|
+| Max instruction stack depth | 5 (9 with SIMD-0268) |
+| CPI invocation cost | 1,000 CUs (946 with SIMD-0339) |
+| Max PDA signers per CPI | 16 |
+| Max CPI instruction data | 10 KiB |
+| Max return data | 1,024 bytes |
+| Max CPI account infos | 128 (255 with SIMD-0339) |
+| Serialization cost | 1 CU per 250 bytes |
+
+<Note>
+Indirect reentrancy is not allowed. If program A calls program B, and B tries to call back into A, the transaction fails with `ReentrancyNotAllowed`. Direct self-recursion (A calling A) is allowed up to the stack depth limit.
+</Note>
+
+## Calling a PDA from a client
+
+Once a program creates a PDA account, clients interact with it by deriving the same address and including it in transactions.
+
+<CodeGroup>
+```typescript TypeScript
+import {
+  Connection,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+  Keypair,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+
+const CHAINSTACK_ENDPOINT = "CHAINSTACK_NODE_URL";
+const connection = new Connection(CHAINSTACK_ENDPOINT);
+
+// Your deployed program
+const programId = new PublicKey("YourProgramId11111111111111111111111111111");
+
+// Derive the vault PDA
+const userWallet = Keypair.generate();
+const [vaultPda, vaultBump] = PublicKey.findProgramAddressSync(
+  [Buffer.from("vault"), userWallet.publicKey.toBuffer()],
+  programId,
+);
+console.log(`Vault PDA: ${vaultPda.toBase58()}`);
+console.log(`Vault bump: ${vaultBump}`);
+
+// Fund the PDA by transferring SOL to its address
+// Any account can receive SOL — the program controls withdrawals via invoke_signed
+const fundTx = new Transaction().add(
+  SystemProgram.transfer({
+    fromPubkey: userWallet.publicKey,
+    toPubkey: vaultPda,
+    lamports: 0.1 * LAMPORTS_PER_SOL,
+  })
+);
+fundTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+fundTx.feePayer = userWallet.publicKey;
+fundTx.sign(userWallet);
+const sig = await connection.sendRawTransaction(fundTx.serialize());
+console.log(`Fund tx: ${sig}`);
+```
+```python Python
+from solana.rpc.api import Client
+from solders.pubkey import Pubkey
+from solders.system_program import TransferParams, transfer
+from solders.transaction import Transaction
+from solders.message import Message
+
+client = Client("CHAINSTACK_NODE_URL")
+
+program_id = Pubkey.from_string("YourProgramId11111111111111111111111111111")
+
+# Derive the vault PDA
+user_wallet = Pubkey.from_string("B9Lf9z5BfNPT4d5KMeaBFx8x1G4CULZYR1jA2kmxRDka")
+vault_pda, vault_bump = Pubkey.find_program_address(
+    [b"vault", bytes(user_wallet)],
+    program_id,
+)
+print(f"Vault PDA: {vault_pda}")
+print(f"Vault bump: {vault_bump}")
+```
+</CodeGroup>
+
+## Common gotchas
+
+These are the issues developers hit most frequently, based on community discussions across Solana and Anchor developer channels.
+
+### SOL transfer from data-bearing PDAs
+
+This is the single most common PDA mistake. If your PDA stores data (has a `#[account]` struct), it is **owned by your program, not the System Program**. Calling `system_program::transfer` to move SOL out of it fails with:
+
+```
+Transfer: `from` must not carry data
+```
+
+The System Program can only transfer from accounts it owns. For program-owned PDAs with data, manipulate lamports directly:
+
+```rust
+// Correct: direct lamport manipulation for program-owned accounts
+**ctx.accounts.recipient.try_borrow_mut_lamports()? += amount;
+**ctx.accounts.pda_with_data.try_borrow_mut_lamports()? -= amount;
+```
+
+Use `system_program::transfer` with `invoke_signed` only for PDAs that store **no data** (declared as `SystemAccount` in Anchor).
+
+### Wrong bump field name in `ctx.bumps`
+
+The bump field name in `ctx.bumps` must match the **account field name** in your `#[derive(Accounts)]` struct, not the seed prefix:
+
+```rust
+#[derive(Accounts)]
+pub struct Withdraw<'info> {
+    #[account(
+        mut,
+        seeds = [b"vault", recipient.key().as_ref()],
+        bump,
+    )]
+    pub vault_account: SystemAccount<'info>,  // field name is "vault_account"
+    // ...
+}
+
+// In the instruction:
+let bump = ctx.bumps.vault_account;  // correct — matches field name
+// NOT: ctx.bumps.vault              // wrong — matches seed prefix
+```
+
+### UnbalancedInstruction after lamport changes
+
+If you manually modify lamports on accounts (add to one, subtract from another) and then do a CPI, you get `UnbalancedInstruction`. The runtime checks that the total lamport sum across all instruction accounts stays constant when setting up the CPI.
+
+The fix: include **all** accounts whose lamports were modified in the CPI instruction accounts, even if the target program doesn't need them.
+
+### Validating PDAs from other programs
+
+When your instruction receives a PDA owned by another program (Metaplex metadata, Raydium pool, etc.), use `seeds::program` to validate it:
+
+```rust
+#[account(
+    seeds = [b"metadata", metadata_program.key().as_ref(), mint.key().as_ref()],
+    seeds::program = metadata_program.key(),
+    bump,
+)]
+pub metadata: UncheckedAccount<'info>,
+```
+
+Without `seeds::program`, Anchor derives the PDA using your program's ID, which produces a different address.
+
+## Security considerations
+
+When working with PDAs and CPIs, follow these practices:
+
+- **Always use canonical bumps** — the bump returned by `findProgramAddress` / `find_program_address`. Non-canonical bumps create alternative valid PDAs for the same seeds, enabling account substitution attacks.
+- **Store and reuse bumps** — save the bump in account data at init time, then use `bump = account.bump` in subsequent instructions. This saves compute and avoids re-derivation.
+- **Validate PDA ownership** — use Anchor's `seeds` + `bump` constraints to verify accounts are the expected PDAs. Without this, an attacker could pass an arbitrary account.
+- **Check CPI account authority** — for token CPIs, use `token::authority = expected_pda` to ensure the token account is actually controlled by your program's PDA.
+- **Avoid seed collisions** — use distinct prefixes for different account types (`b"vault"`, `b"metadata"`, `b"config"`) and include discriminating keys (user pubkey, mint pubkey) to prevent collisions.
+- **Mind the CPI depth** — the max instruction stack depth is 5, meaning the entry instruction plus 4 nested CPIs. All nested CPIs share a single compute budget. Design program architecture to minimize CPI chains.
+- **Watch for reentrancy** — Solana blocks indirect reentrancy (A → B → A), but direct self-calls are allowed. If your program calls itself, ensure state is updated before the CPI to prevent double-processing.
+
+## Further reading
+
+- [Solana documentation: Program derived addresses](https://solana.com/docs/core/pda)
+- [Solana documentation: Cross-program invocations](https://solana.com/docs/core/cpi)
+- [Anchor documentation: PDA constraints](https://www.anchor-lang.com/docs/basics/pda)
+- [Anchor documentation: CPIs](https://www.anchor-lang.com/docs/basics/cpi)
+- [Solana program examples: PDA](https://github.com/solana-developers/program-examples/tree/main/basics/program-derived-addresses)
+- [Solana program examples: CPI](https://github.com/solana-developers/program-examples/tree/main/basics/cross-program-invocation)
