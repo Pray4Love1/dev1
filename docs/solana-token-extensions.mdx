@@ -1,0 +1,217 @@
+---
+title: "Solana: Token extensions (Token-2022)"
+description: Understand Token Extensions on Solana — the Token-2022 program that adds transfer fees, confidential transfers, metadata, soulbound tokens, and more to SPL tokens via Chainstack nodes.
+---
+
+**TLDR:**
+* The Token Extensions Program (Token-2022) is a superset of the original SPL Token Program with optional extensions you enable at mint creation time.
+* Extensions add features like transfer fees, on-chain metadata, confidential transfers, non-transferable (soulbound) tokens, permanent delegates, and transfer hooks.
+* Token-2022 tokens work with the same RPC methods (`getTokenAccountsByOwner`, `getTokenSupply`, etc.) but require the Token-2022 program ID for filtering.
+* Most extensions cannot be added after mint creation — plan your token design upfront.
+
+## Why Token Extensions matter
+
+The original SPL Token Program covers basic mint, transfer, and burn operations. But real-world token use cases need more:
+
+* **Transfer fees** — protocol-level fee on every transfer, collected automatically on-chain
+* **Confidential transfers** — ZK-encrypted balances and transfer amounts for privacy
+* **On-chain metadata** — store token name, symbol, and URI directly on the mint account (no Metaplex dependency)
+* **Non-transferable tokens** — soulbound credentials, achievements, identity tokens
+* **Permanent delegate** — compliance-oriented freeze/clawback capability
+* **Transfer hooks** — programmable logic that runs on every transfer (royalties, allow-lists, custom validation)
+
+The Token-2022 program ID is `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb`.
+
+<Check>
+### Get your own node endpoint today
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Available extensions
+
+Extensions are enabled at mint or token account creation time. Most cannot be added later.
+
+### Mint extensions
+
+| Extension | What it does |
+| --------- | ------------ |
+| TransferFeeConfig | Automatic fee on every transfer, collected in withheld accounts |
+| MintCloseAuthority | Allows closing the mint account to reclaim rent |
+| InterestBearingConfig | Tokens accrue interest over time (UI display, not actual minting) |
+| PermanentDelegate | An authority that can transfer or burn tokens from any account |
+| NonTransferable | Tokens cannot be transferred (soulbound) |
+| TransferHook | Calls a custom program on every transfer (CPI-based) |
+| MetadataPointer + TokenMetadata | On-chain metadata stored directly on the mint |
+| GroupPointer + TokenGroup | Collection-like grouping for tokens |
+| ConfidentialTransferMint | Enables ZK-encrypted balances and transfers |
+| DefaultAccountState | New token accounts start as frozen (require explicit thaw) |
+| Pausable | Admin can pause all transfers globally |
+| ScaledUiAmount | Rebasing token display (like stETH) |
+
+### Account extensions
+
+| Extension | What it does |
+| --------- | ------------ |
+| ImmutableOwner | Token account owner cannot be changed (enabled by default for ATAs) |
+| MemoTransfer | Inbound transfers require a memo |
+| CpiGuard | Blocks certain token operations when invoked via CPI |
+
+## Create a token with extensions
+
+This example creates a mint with transfer fees and on-chain metadata.
+
+### Prerequisites
+
+```bash
+npm install @solana/web3.js @solana/spl-token dotenv
+```
+
+### Code
+
+<CodeGroup>
+```typescript TypeScript
+import {
+  Connection,
+  Keypair,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+} from "@solana/web3.js";
+import {
+  ExtensionType,
+  TOKEN_2022_PROGRAM_ID,
+  createInitializeMintInstruction,
+  createInitializeTransferFeeConfigInstruction,
+  getMintLen,
+  createMintToInstruction,
+  createAssociatedTokenAccountInstruction,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
+import {
+  createInitializeInstruction,
+  pack,
+  TokenMetadata,
+} from "@solana/spl-token-metadata";
+import bs58 from "bs58";
+import "dotenv/config";
+
+const connection = new Connection(process.env.SOLANA_RPC!);
+const payer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY!));
+const mintKeypair = Keypair.generate();
+const mint = mintKeypair.publicKey;
+
+const decimals = 6;
+const transferFeeBasisPoints = 100; // 1%
+const maxFee = BigInt(1_000_000); // 1 token max fee
+
+// Metadata for the token
+const metadata: TokenMetadata = {
+  mint: mint,
+  name: "My Hackathon Token",
+  symbol: "HACK",
+  uri: "https://example.com/metadata.json",
+  additionalMetadata: [],
+};
+
+async function createTokenWithExtensions() {
+  // Calculate space needed for mint + extensions
+  const extensions = [ExtensionType.TransferFeeConfig];
+  const mintLen = getMintLen(extensions);
+  const metadataLen = pack(metadata).length;
+  const totalLen = mintLen + metadataLen;
+
+  const lamports = await connection.getMinimumBalanceForRentExemption(totalLen);
+
+  const transaction = new Transaction().add(
+    // Create account
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: mint,
+      space: mintLen,
+      lamports,
+      programId: TOKEN_2022_PROGRAM_ID,
+    }),
+    // Initialize transfer fee extension
+    createInitializeTransferFeeConfigInstruction(
+      mint,
+      payer.publicKey, // transfer fee config authority
+      payer.publicKey, // withdraw withheld authority
+      transferFeeBasisPoints,
+      maxFee,
+      TOKEN_2022_PROGRAM_ID
+    ),
+    // Initialize mint
+    createInitializeMintInstruction(
+      mint,
+      decimals,
+      payer.publicKey,
+      null, // no freeze authority
+      TOKEN_2022_PROGRAM_ID
+    ),
+    // Initialize on-chain metadata
+    createInitializeInstruction({
+      programId: TOKEN_2022_PROGRAM_ID,
+      mint: mint,
+      metadata: mint, // metadata stored on the mint itself
+      name: metadata.name,
+      symbol: metadata.symbol,
+      uri: metadata.uri,
+      mintAuthority: payer.publicKey,
+      updateAuthority: payer.publicKey,
+    })
+  );
+
+  const sig = await sendAndConfirmTransaction(connection, transaction, [
+    payer,
+    mintKeypair,
+  ]);
+  console.log("Token created:", mint.toBase58());
+  console.log("Transaction:", sig);
+}
+
+createTokenWithExtensions();
+```
+</CodeGroup>
+
+## Query Token-2022 accounts via RPC
+
+When querying Token-2022 accounts, use the Token-2022 program ID in the `programId` filter:
+
+<CodeGroup>
+```bash cURL
+curl -X POST YOUR_CHAINSTACK_ENDPOINT -H "Content-Type: application/json" -d '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "getTokenAccountsByOwner",
+  "params": [
+    "OWNER_PUBKEY",
+    {
+      "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+    },
+    {
+      "encoding": "jsonParsed"
+    }
+  ]
+}'
+```
+</CodeGroup>
+
+The `jsonParsed` response for Token-2022 accounts includes an `extensions` array showing the active extensions and their configuration. This is the same [getTokenAccountsByOwner](/reference/solana-gettokenaccountsbyowner) method — the only difference is the program ID filter.
+
+## Key considerations
+
+* **Plan extensions at creation** — most extensions cannot be added after the mint is initialized.
+* **Incompatible extensions** — some combinations don't work together (e.g., `NonTransferable` + `TransferFeeConfig`).
+* **Rent costs** — extensions increase account size and therefore rent. Calculate space with `getMintLen([...extensions])`.
+* **Wallet support** — major wallets (Phantom, Backpack, Solflare) support Token-2022 tokens. Some older wallets may not.
+* **DEX support** — Jupiter, Raydium, and Orca support Token-2022 tokens with most extensions.
+
+## Additional resources
+
+* [Solana Token Extensions documentation](https://solana.com/docs/tokens/extensions)
+* [Token-2022 program source](https://github.com/solana-program/token-2022)
+* [Transferring SPL tokens on Solana](/docs/transferring-spl-tokens-on-solana-typescript) — for classic SPL Token transfers
+* [getTokenAccountsByOwner](/reference/solana-gettokenaccountsbyowner) — query token accounts with `jsonParsed` encoding
