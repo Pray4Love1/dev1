@@ -171,10 +171,12 @@ buildNonceTransaction();
 
 <CodeGroup>
 ```typescript TypeScript
-import { Connection } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import "dotenv/config";
 
 const connection = new Connection(process.env.SOLANA_RPC!);
+
+const NONCE_PUBKEY = new PublicKey("YOUR_NONCE_ACCOUNT_ADDRESS");
 
 async function submitNonceTransaction(base64Tx: string) {
   const buffer = Buffer.from(base64Tx, "base64");
@@ -182,7 +184,13 @@ async function submitNonceTransaction(base64Tx: string) {
   const sig = await connection.sendRawTransaction(buffer);
   console.log("Submitted:", sig);
 
-  const confirmation = await connection.confirmTransaction(sig);
+  // For nonce transactions, use nonce-aware confirmation (not blockhash-based)
+  const confirmation = await connection.confirmTransaction({
+    signature: sig,
+    nonceAccountPubkey: NONCE_PUBKEY,
+    nonceValue: "THE_NONCE_VALUE_USED_IN_THE_TRANSACTION",
+    minContextSlot: 0,
+  });
   console.log("Confirmed:", confirmation.value.err ? "FAILED" : "SUCCESS");
 }
 

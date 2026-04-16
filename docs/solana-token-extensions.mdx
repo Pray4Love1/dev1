@@ -66,7 +66,7 @@ This example creates a mint with transfer fees and on-chain metadata.
 ### Prerequisites
 
 ```bash
-npm install @solana/web3.js @solana/spl-token dotenv
+npm install @solana/web3.js @solana/spl-token @solana/spl-token-metadata bs58 dotenv
 ```
 
 ### Code
@@ -92,8 +92,11 @@ import {
 } from "@solana/spl-token";
 import {
   createInitializeInstruction,
+  createInitializeMetadataPointerInstruction,
   pack,
   TokenMetadata,
+  TYPE_SIZE,
+  LENGTH_SIZE,
 } from "@solana/spl-token-metadata";
 import bs58 from "bs58";
 import "dotenv/config";
@@ -118,9 +121,9 @@ const metadata: TokenMetadata = {
 
 async function createTokenWithExtensions() {
   // Calculate space needed for mint + extensions
-  const extensions = [ExtensionType.TransferFeeConfig];
+  const extensions = [ExtensionType.TransferFeeConfig, ExtensionType.MetadataPointer];
   const mintLen = getMintLen(extensions);
-  const metadataLen = pack(metadata).length;
+  const metadataLen = TYPE_SIZE + LENGTH_SIZE + pack(metadata).length;
   const totalLen = mintLen + metadataLen;
 
   const lamports = await connection.getMinimumBalanceForRentExemption(totalLen);
@@ -134,6 +137,13 @@ async function createTokenWithExtensions() {
       lamports,
       programId: TOKEN_2022_PROGRAM_ID,
     }),
+    // Initialize metadata pointer (points to the mint itself)
+    createInitializeMetadataPointerInstruction(
+      mint,
+      payer.publicKey, // metadata pointer authority
+      mint, // metadata account (self-referencing)
+      TOKEN_2022_PROGRAM_ID
+    ),
     // Initialize transfer fee extension
     createInitializeTransferFeeConfigInstruction(
       mint,

@@ -20,7 +20,7 @@ You can sign up with your GitHub, X, Google, or Microsoft account.
 
 1. `transaction` (string, required) — a base64 or base58 encoded string representing the transaction to simulate.
 2. `config` (object, optional) — configuration object containing:
-   * `encoding` (string) — encoding used for the transaction data. Values: `base58`, `base64`. Default: `base64`.
+   * `encoding` (string) — encoding used for the transaction data. Values: `base58` (deprecated), `base64` (recommended). Default: `base58`.
    * `commitment` (string) — the bank state to simulate against. Default: `finalized`.
    * `sigVerify` (boolean) — when `true`, verify transaction signatures. Default: `false`. Conflicts with `replaceRecentBlockhash`.
    * `replaceRecentBlockhash` (boolean) — when `true`, replace the transaction's recent blockhash with the most recent blockhash from the bank. Default: `false`. Useful for simulating transactions with expired blockhashes. Conflicts with `sigVerify`.

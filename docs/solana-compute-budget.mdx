@@ -34,7 +34,7 @@ Consider a simple SOL transfer with a priority fee:
 * 2 builtin instructions (transfer + SetComputeUnitPrice) = 6,000 CUs allocated
 * But the actual transfer uses ~450 CUs
 
-If you set a priority fee of 10,000 micro-lamports per CU, the fee on 6,000 CUs is 60,000 micro-lamports. If you set `SetComputeUnitLimit` to 500 CUs (enough for the transfer + margin), the fee drops to 5,000 micro-lamports — a 12x reduction.
+If you set a priority fee of 10,000 micro-lamports per CU, the fee on 6,000 CUs is 60,000,000 micro-lamports (0.06 lamports). If you set `SetComputeUnitLimit` to 500 CUs (enough for the transfer + margin), the fee drops to 5,000,000 micro-lamports — a 12x reduction.
 
 <Warning>
 The priority fee is determined by the **requested** compute unit limit, not the actual number of compute units used. If you set a CU limit that is too high or use the default, you pay for unused compute.
@@ -164,10 +164,10 @@ These block limits are why tight CU budgets matter: a transaction requesting 200
 The total priority fee for a transaction:
 
 ```
-priority_fee = (SetComputeUnitPrice × SetComputeUnitLimit) / 1,000,000
+priority_fee = ceil(SetComputeUnitPrice × SetComputeUnitLimit / 1,000,000)
 ```
 
-Where `SetComputeUnitPrice` is in micro-lamports and the result is in lamports. The fee is **always based on the requested limit**, not actual usage.
+Where `SetComputeUnitPrice` is in micro-lamports and the result is in lamports. The division uses ceiling — non-integer results round up. The fee is **always based on the requested limit**, not actual usage.
 
 ## Additional resources
 
