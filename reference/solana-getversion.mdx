@@ -1,0 +1,31 @@
+---
+title: getVersion | Solana
+openapi: /openapi/solana_node_api/getVersion.json POST /9de47db917d4f69168e3fed02217d15b
+---
+
+The Solana `getVersion` method returns the current Solana version running on the node.
+
+This method is useful for verifying which validator client and version your RPC node is running, which can affect feature availability and behavior.
+
+<Check>
+**Get your own node endpoint today**
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Parameters
+
+This method does not require any parameters.
+
+## Response
+
+The response includes a `result` object with:
+
+* `solana-core` (string) — the software version of the Solana node (e.g., `"2.1.10"`).
+* `feature-set` (integer) — the unique identifier of the current software's feature set.
+
+## Use case
+
+A common use case for `getVersion` is in infrastructure monitoring to verify that your node is running the expected validator version. This is especially relevant during network upgrades (e.g., Agave 2.0) to confirm your node has updated and supports the latest RPC methods.

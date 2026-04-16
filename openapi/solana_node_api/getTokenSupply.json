@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "getStakeActivation example",
+    "title": "getTokenSupply example",
     "version": "1.0.0",
-    "description": "This is an API example for Solana's getStakeActivation."
+    "description": "This is an API example for Solana's getTokenSupply."
   },
   "servers": [
     {
@@ -16,8 +16,8 @@
         "tags": [
           "query"
         ],
-        "summary": "getStakeActivation",
-        "operationId": "getStakeActivation",
+        "summary": "getTokenSupply",
+        "operationId": "getTokenSupply",
         "requestBody": {
           "required": true,
           "content": {
@@ -35,15 +35,12 @@
                   },
                   "method": {
                     "type": "string",
-                    "default": "getStakeActivation"
+                    "default": "getTokenSupply"
                   },
                   "params": {
                     "type": "array",
                     "default": [
-                      "6D2jqw9hyVCpppZexquxa74Fn33rJzzBx38T58VucHx9",
-                      {
-                        "epoch": 554
-                      }
+                      "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
                     ]
                   }
                 }
@@ -53,7 +50,7 @@
         },
         "responses": {
           "200": {
-            "description": "Stake activation details",
+            "description": "Token supply details",
             "content": {
               "application/json": {
                 "schema": {

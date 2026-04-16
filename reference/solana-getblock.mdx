@@ -3,6 +3,10 @@ title: getBlock | Solana
 openapi: /openapi/solana_node_api/getBlock.json POST /9de47db917d4f69168e3fed02217d15b
 ---
 
+<Note>
+**Per-method rate limit:** 400 RPS across all regions. **Archive data:** this method supports fetching historical data on [Global Nodes](/docs/global-elastic-node). See [Solana method limits](/docs/limits#solana-method-limits).
+</Note>
+
 See also [Solana: optimize your getBlock performance](/docs/solana-optimize-your-getblock-performance).
 
 The Solana `getBlock` method returns complete information about a block for a given **slot height**.

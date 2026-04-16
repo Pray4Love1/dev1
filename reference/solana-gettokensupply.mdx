@@ -1,0 +1,42 @@
+---
+title: getTokenSupply | Solana
+openapi: /openapi/solana_node_api/getTokenSupply.json POST /9de47db917d4f69168e3fed02217d15b
+---
+
+The Solana `getTokenSupply` method returns the total supply of an SPL token.
+
+This method is useful for getting the circulating supply of a token, building token analytics dashboards, and verifying token mint configurations.
+
+<Note>
+**Per-method rate limit**
+
+This method is limited to 300 RPS across all regions. See [Solana method limits](/docs/limits#solana-method-limits).
+</Note>
+
+<Check>
+**Get your own node endpoint today**
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Parameters
+
+1. `pubkey` (string, required) — the pubkey of the token mint to query, as a base58 encoded string.
+2. `commitment` (string, optional) — the commitment level. Values: `processed`, `confirmed`, `finalized`.
+
+## Response
+
+The response includes a `result` object with:
+
+* `context` — an object containing `slot`, the slot at which the data was fetched.
+* `value` — an object containing:
+  * `amount` (string) — the raw total supply without decimals, as a string representation of a u64.
+  * `decimals` (integer) — the number of base-10 digits to the right of the decimal place.
+  * `uiAmount` (number, nullable) — the total supply using mint-prescribed decimals. Deprecated.
+  * `uiAmountString` (string) — the total supply as a string, using mint-prescribed decimals.
+
+## Use case
+
+A common use case for `getTokenSupply` is in token analytics. For example, you can query the USDC mint to check the total USDC supply on Solana, or verify that a newly deployed token has the expected supply before interacting with it in a DeFi protocol.
