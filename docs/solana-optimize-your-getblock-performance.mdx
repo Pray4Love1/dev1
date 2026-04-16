@@ -11,7 +11,7 @@ description: Optimize getBlock call performance on Solana by tuning maxSupported
 
 ## Main article
 
-Solana's [getBlock](/reference/solana-getblocks) RPC method is a fundamental method that can be tricky and will screw up your application performance in a jiffy if you are not paying attention.
+Solana's [getBlock](/reference/solana-getblock) RPC method is a fundamental method that can be tricky and will screw up your application performance in a jiffy if you are not paying attention.
 
 This guide provides a comprehensive overview of how to use `getBlock` efficiently, with practical examples in Python and curl.
 
@@ -104,7 +104,8 @@ If you're only interested in transaction signatures (hashes), which is much ligh
       {
         "encoding": "json",
         "transactionDetails": "signatures",
-        "commitment": "finalized"
+        "commitment": "finalized",
+        "maxSupportedTransactionVersion": 0
       }
     ]
   }'

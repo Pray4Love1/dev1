@@ -11,14 +11,14 @@ description: Add retry logic to Solana SPL token transfers using transaction con
 
 ## Main article
 
-The [previous article](https://dash.readme.com/project/chainstack/v1.0/docs/transferring-spl-tokens-on-solana-typescript) explored transferring SPL tokens on the Solana blockchain using TypeScript. While the provided code successfully demonstrated the token transfer process, it lacked retry logic—a crucial aspect for handling potential failures and retrying failed transactions in blockchain applications.
+The [previous article](/docs/transferring-spl-tokens-on-solana-typescript) explored transferring SPL tokens on the Solana blockchain using TypeScript. While the provided code successfully demonstrated the token transfer process, it lacked retry logic—a crucial aspect for handling potential failures and retrying failed transactions in blockchain applications.
 
 Retry logic helps mitigate the impact of transient network issues or node overload by automatically retrying failed transactions multiple times. This approach increases the likelihood of successful execution, ensuring better reliability and improving the overall user experience.
 
 This guide will extend the existing codebase by adding a simple retry logic to the token transfer process. We will discuss why retries are needed, explore different error scenarios, and implement a straightforward retry mechanism. Incorporating retry logic will make our application more resilient to temporary network problems, laying the foundation for further improvements in robustness and performance.
 
 <Info>
-  Read [Transferring SPL tokens on Solana: A step-by-step TypeScript tutorial](https://dash.readme.com/project/chainstack/v1.0/docs/transferring-spl-tokens-on-solana-typescript) to find the full code base and learn how it works.
+  Read [Transferring SPL tokens on Solana: A step-by-step TypeScript tutorial](/docs/transferring-spl-tokens-on-solana-typescript) to find the full code base and learn how it works.
 </Info>
 
 ## Understanding the need for retry logic

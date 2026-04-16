@@ -17,7 +17,7 @@ In this tutorial, we are going to have a look at how add our own prioritization 
 
 As Jupiter does not have a Python SDK at the time of this tutorial, it's more fun doing this in Python.
 
-For JavaScript, check out their [Jupiter SDK](https://betastation.jup.ag/docs/apis/swap-sdk).
+For JavaScript, check out the [Jupiter developer docs](https://developers.jup.ag/docs/swap).
 
 ## Transaction fees on Solana
 
@@ -59,10 +59,10 @@ Here's how it's going to work:
 
 Now let's implement our flow as outlined above.
 
-Have a look at the [Jupiter API endpoints](https://station.jup.ag/api-v6), and you will see that there are a few of them. The two that we need are:
+Have a look at the [Jupiter swap API](https://developers.jup.ag/docs/swap), and you will see that there are a few endpoints. The two that we need are:
 
-* [quote](https://station.jup.ag/api-v6/get-quote) — to get the quote for the trade
-* [swap](https://station.jup.ag/api-v6/post-swap) — to prepare the swap transaction
+* quote — to get the quote for the trade
+* swap — to prepare the swap transaction
 
 For everything else we are using our own Solana node.
 

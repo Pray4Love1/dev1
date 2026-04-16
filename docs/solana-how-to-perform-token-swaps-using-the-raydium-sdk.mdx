@@ -8,7 +8,7 @@ description: "Perform Solana token swaps with Raydium SDK and Chainstack. Learn 
 </Frame>
 
 **TLDR:**
-* Using the Raydium SDK on Solana allows you to swap tokens efficiently while leveraging Serum’s order book for ample liquidity.
+* Using the Raydium SDK on Solana allows you to swap tokens efficiently while leveraging OpenBook’s order book for ample liquidity.
 * This TypeScript project sets up the Solana Connection (with your own node endpoint), loads trimmed pool data, and constructs a transaction for a token pair (e.g., SOL → USDC).
 * Configuration lives in `swapConfig.ts` for easy adjustments (e.g., token amounts, slippage, versioned transaction usage).
 * You can simulate swaps first or execute them immediately, with built-in transaction logging and debugging.
@@ -17,7 +17,7 @@ description: "Perform Solana token swaps with Raydium SDK and Chainstack. Learn 
 
 The Solana blockchain is at the forefront of DeFi, known for its remarkable speed and cost-efficiency. This has positioned Solana as a highly sought-after platform for users and developers interested in DeFi activities.
 
-Central to this ecosystem's appeal is Raydium, an automated market maker (AMM) that integrates seamlessly with Serum's central order book, enabling quick and cost-effective token transactions. Raydium's integration with Solana facilitates immediate swaps with minimal slippage and maintains liquidity at optimal levels.
+Central to this ecosystem's appeal is Raydium, an automated market maker (AMM) that integrates seamlessly with OpenBook's central order book, enabling quick and cost-effective token transactions. Raydium's integration with Solana facilitates immediate swaps with minimal slippage and maintains liquidity at optimal levels.
 
 In this guide, we'll walk you through using the Raydium SDK and Solana Chainstack nodes to swap tokens in TypeScript.
 

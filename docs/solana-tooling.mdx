@@ -46,7 +46,7 @@ Get started with a [reliable Solana RPC endpoint](https://chainstack.com/build-b
 
 ## JSON-RPC API
 
-Interact with your Solana network using [JSON-RPC API](https://docs.solana.com/developing/clients/jsonrpc-api).
+Interact with your Solana network using [JSON-RPC API](https://solana.com/docs/rpc).
 
 Use [curl](https://curl.haxx.se) or [Postman](https://www.getpostman.com).
 
@@ -64,7 +64,7 @@ where YOUR\_CHAINSTACK\_ENDPOINT is your node HTTPS or WSS endpoint protected ei
 
 ## Solana web3.js
 
-1. Install Solana web3.js. See [Solana web3.js guide](https://docs.solana.com/developing/clients/javascript-api).
+1. Install Solana web3.js. See [Solana web3.js guide](https://solana.com/docs/clients/javascript-reference).
 
 2. Use `Connection` to connect to your Solana node and get account balance:
 
@@ -88,9 +88,9 @@ where YOUR\_CHAINSTACK\_ENDPOINT is your node HTTPS or WSS endpoint protected ei
 
    ```python
    from solana.rpc.api import Client
-   from solana.publickey import PublicKey
+   from solders.pubkey import Pubkey
    client = Client('YOUR_CHAINSTACK_ENDPOINT')
-   print(client.get_balance(PublicKey('23dQfKhhsZ9RA5AAn12KGk21MB784PmTB3gfKRwdBNHr')))
+   print(client.get_balance(Pubkey.from_string('23dQfKhhsZ9RA5AAn12KGk21MB784PmTB3gfKRwdBNHr')))
    ```
 
    where YOUR_CHAINSTACK_ENDPOINT is your node HTTPS or WSS endpoint protected either with the key or password. See [node access details](/docs/manage-your-node#view-node-access-and-credentials).

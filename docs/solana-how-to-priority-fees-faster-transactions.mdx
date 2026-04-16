@@ -123,11 +123,13 @@ Follow these steps to install the required packages:
 <CodeGroup>
   ```bash Bash
   npm install bs58 dotenv
+  npm install --save-dev ts-node
   ```
 </CodeGroup>
 
 * The `bs58` package is a base58 encoding/decoding library for Solana addresses and keypairs.
 * The `dotenv` package allows us to load environment variables from a `.env` file, which helps store sensitive information like private keys.
+* The `ts-node` package lets you run TypeScript files directly without a separate compilation step.
 
 After running these commands, your `package.json` file should have the following dependencies:
 
@@ -202,7 +204,7 @@ Now that we have set up the project, installed the required packages, and config
 2. Paste the following code into the `main.ts` file:
 
 <CodeGroup>
-  ```solidity solidity
+  ```typescript TypeScript
   import { ComputeBudgetProgram, Connection, Keypair, LAMPORTS_PER_SOL, SystemProgram, TransactionInstruction, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
   import bs58 from "bs58";
   import 'dotenv/config';
@@ -236,7 +238,7 @@ Now that we have set up the project, installed the required packages, and config
 
     // Get the latest blockhash
     let latestBlockhash = await SOLANA_CONNECTION.getLatestBlockhash('confirmed');
-    console.log(" <Icon icon="square-check"  iconType="solid" /> - Fetched latest blockhash. Last Valid Height:", latestBlockhash.lastValidBlockHeight);
+    console.log(" ✅ - Fetched latest blockhash. Last Valid Height:", latestBlockhash.lastValidBlockHeight);
 
     // Generate the transaction message
     const messageV0 = new TransactionMessage({
@@ -244,19 +246,19 @@ Now that we have set up the project, installed the required packages, and config
       recentBlockhash: latestBlockhash.blockhash,
       instructions: instructions
     }).compileToV0Message();
-    console.log(" <Icon icon="square-check"  iconType="solid" /> - Compiled Transaction Message");
+    console.log(" ✅ - Compiled Transaction Message");
 
     // Create a VersionedTransaction and sign it
     const transaction = new VersionedTransaction(messageV0);
     transaction.sign([FROM_KEYPAIR]);
-    console.log(" <Icon icon="square-check"  iconType="solid" /> - Transaction Signed");
+    console.log(" ✅ - Transaction Signed");
 
     console.log(`Sending ${AMOUNT_TO_TRANSFER / LAMPORTS_PER_SOL} SOL from ${FROM_KEYPAIR.publicKey} to ${FROM_KEYPAIR.publicKey} with priority fee rate ${PRIORITY_RATE} microLamports`);
 
     try {
       // Send the transaction to the network
       const txid = await SOLANA_CONNECTION.sendTransaction(transaction, { maxRetries: 15 });
-      console.log(" <Icon icon="square-check"  iconType="solid" /> - Transaction sent to network");
+      console.log(" ✅ - Transaction sent to network");
 
       // Confirm the transaction
       const confirmation = await SOLANA_CONNECTION.confirmTransaction({
@@ -342,7 +344,7 @@ This will initiate the transaction with the applied priority fee, logging the pr
 
 <CodeGroup>
   ```jsx jsx
-  $ ts-node app.ts
+  $ ts-node main.ts
 
 Connected to Solana RPC at https://solana-mainnet.core.chainstack.
 Initial Setup: Public Key - CzNGm14nMopjGYyycMbWqEF2e1aEHcJLKk2CHw9BiZwC
