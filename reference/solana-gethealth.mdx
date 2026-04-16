@@ -1,0 +1,29 @@
+---
+title: getHealth | Solana
+openapi: /openapi/solana_node_api/getHealth.json POST /9de47db917d4f69168e3fed02217d15b
+---
+
+The Solana `getHealth` method returns the current health status of the node.
+
+A healthy node is one that is within `HEALTH_CHECK_SLOT_DISTANCE` slots of the latest cluster confirmed slot. This method is useful for monitoring node availability and building health checks into your application infrastructure.
+
+<Check>
+**Get your own node endpoint today**
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Parameters
+
+This method does not require any parameters.
+
+## Response
+
+* If the node is healthy: `result` is the string `"ok"`.
+* If the node is unhealthy: the response contains an `error` object with a JSON-RPC error code and a message describing the health issue (e.g., behind by too many slots).
+
+## Use case
+
+A common use case for `getHealth` is in infrastructure monitoring. You can periodically call `getHealth` from your load balancer or health check system to verify that your Solana node is synced and responsive before routing traffic to it. This is especially useful when running [multiple RPC endpoints](/docs/solana-how-to-use-multiple-rpc-endpoints-optimize-dapp-performance) for failover.

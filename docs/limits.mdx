@@ -73,7 +73,6 @@ The following per-method RPS limits apply identically across all regions:
 | `getBlock` | 400 |
 | `getTokenSupply` | 300 |
 | `getTokenAccountsByOwner` | 80 |
-| `getConfirmedBlock` | 30 |
 | `getSupply` | 2 |
 | `getLargestAccounts` | 0 — available on [Dedicated Nodes](/docs/dedicated-node) only |
 
@@ -82,6 +81,10 @@ The following per-method RPS limits apply identically across all regions:
 - Chainstack Global Network `global1` RPS: 3
 - Chainstack Cloud London `lon1` RPS: 10
 - Chainstack Cloud New York City `nyc1` RPS: 3
+
+<Note>
+The `getConfirmedBlock` method was removed in Agave 2.0 and returns `Method not found` on current validators. Use [`getBlock`](/reference/solana-getblock) instead.
+</Note>
 
 Architectural limits (set by Solana, not Chainstack):
 
