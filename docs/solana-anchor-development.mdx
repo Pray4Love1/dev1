@@ -1,0 +1,903 @@
+---
+title: "Solana: Anchor development"
+description: Build, test, and deploy Solana programs with the Anchor framework — project scaffolding, program structure, account constraints, IDL generation, LiteSVM testing, and client interaction using Anchor 1.0.0.
+---
+
+**TLDR:**
+* [Anchor](https://www.anchor-lang.com/) is the standard framework for building Solana programs. It handles account validation, serialization, and security checks through Rust macros.
+* `anchor init` scaffolds a full workspace: program source, tests, deployment config, and TypeScript types.
+* The `#[program]` macro defines instructions, `#[derive(Accounts)]` defines account validation, and `#[account]` defines on-chain state.
+* Anchor 1.0.0 (April 2026) ships breaking changes: `@anchor-lang/core` replaces `@coral-xyz/anchor`, Surfpool replaces solana-test-validator, and LiteSVM is the default test template.
+
+## Prerequisites
+
+Install the following before starting. The guide targets Anchor 1.0.0.
+
+| Tool | Version | Install |
+|------|---------|---------|
+| Rust | 1.89.0+ | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
+| Solana CLI | 3.1.10+ | `sh -c "\$(curl -sSfL https://release.anza.xyz/v3.1.10/install)"` |
+| Anchor CLI | 1.0.0 | `cargo install avm --git https://github.com/solana-foundation/anchor --locked && avm install 1.0.0 && avm use 1.0.0` |
+| Node.js | 22+ | [nodejs.org](https://nodejs.org/) |
+| Yarn | 1.22+ | `npm install -g yarn` |
+| Surfpool | 1.1.2+ | [Installation instructions](https://github.com/solana-foundation/surfpool?tab=readme-ov-file#installation) |
+
+Verify your setup:
+
+```shell
+anchor --version    # anchor-cli 1.0.0
+solana --version    # solana-cli 3.1.x
+rustc --version     # rustc 1.89.0+
+surfpool --version  # surfpool 1.1.2+
+```
+
+<Warning>
+Anchor 1.0.0 uses Surfpool instead of solana-test-validator for `anchor test`. If Surfpool is not installed, `anchor test` will fail with a connection error. If you cannot install Surfpool, use `anchor test --validator legacy` to fall back to solana-test-validator.
+</Warning>
+
+<Note>
+Anchor 1.0.0 no longer requires the Solana CLI to be on your PATH for most commands. The `anchor` CLI ships native implementations of `balance`, `airdrop`, `address`, and `deploy`. You still need the Solana CLI for operations like `solana-keygen` and `solana program close`.
+</Note>
+
+## Creating a project
+
+Scaffold a new Anchor workspace:
+
+```shell
+anchor init my-counter
+cd my-counter
+```
+
+This creates a modular project structure with separate files for instructions, state, constants, and errors. If you prefer everything in a single `lib.rs`, use `--template single`:
+
+```shell
+anchor init my-counter --template single
+```
+
+<Tip>
+The modular template (default) is recommended for production programs. It scales better as your program grows.
+</Tip>
+
+### Test templates
+
+Anchor 1.0.0 generates a LiteSVM Rust test by default. You can pick a different template:
+
+```shell
+anchor init my-counter --test-template mocha    # TypeScript with Mocha
+anchor init my-counter --test-template mollusk   # Mollusk test library
+```
+
+## Project structure
+
+After `anchor init`, the workspace looks like this:
+
+```
+my-counter/
+├── programs/
+│   └── my-counter/
+│       ├── src/
+│       │   ├── lib.rs              # Entry point, module declarations
+│       │   ├── constants.rs        # Program constants
+│       │   ├── error.rs            # Custom error codes
+│       │   ├── instructions.rs     # Re-exports instruction modules
+│       │   ├── instructions/
+│       │   │   └── initialize.rs   # Instruction handler
+│       │   └── state.rs            # Account state definitions
+│       └── Cargo.toml
+├── tests/
+│   └── my-counter.ts               # Test file (or src/ for Rust tests)
+├── target/
+│   ├── deploy/                      # Compiled .so and keypair
+│   ├── idl/                         # Generated IDL JSON
+│   └── types/                       # Generated TypeScript types
+├── Anchor.toml                      # Workspace configuration
+├── Cargo.toml                       # Rust workspace manifest
+├── rust-toolchain.toml              # Rust MSRV pinning
+└── package.json
+```
+
+Key directories:
+
+- `programs/` — your on-chain programs. A workspace can contain multiple programs.
+- `target/deploy/` — the compiled program binary (`.so` file) and program keypair.
+- `target/idl/` — the generated IDL JSON file that clients use to interact with your program.
+- `target/types/` — TypeScript type definitions generated from the IDL.
+
+### Anchor.toml
+
+The workspace configuration file controls which cluster you deploy to, which wallet signs transactions, and what scripts run during testing:
+
+```toml
+[toolchain]
+package_manager = "yarn"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+my_counter = "YourProgramId111111111111111111111111111111"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 \"tests/**/*.ts\""
+
+[hooks]
+```
+
+You can optionally pin versions in the `[toolchain]` section:
+
+```toml
+[toolchain]
+anchor_version = "1.0.0"
+solana_version = "3.1.10"
+package_manager = "yarn"
+```
+
+<Note>
+The `[registry]` section has been removed in Anchor 1.0.0. If you see it in older examples, delete it.
+</Note>
+
+## Program anatomy
+
+An Anchor program is built around four macros. Here is a complete counter program that demonstrates all of them:
+
+```rust
+use anchor_lang::prelude::*;
+
+declare_id!("Cntr1111111111111111111111111111111111111111");
+
+#[program]
+pub mod my_counter {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let counter = &mut ctx.accounts.counter;
+        counter.count = 0;
+        counter.authority = ctx.accounts.authority.key();
+        msg!("Counter initialized by {}", counter.authority);
+        Ok(())
+    }
+
+    pub fn increment(ctx: Context<Increment>) -> Result<()> {
+        let counter = &mut ctx.accounts.counter;
+        counter.count = counter.count.checked_add(1)
+            .ok_or(ErrorCode::Overflow)?;
+        msg!("Counter incremented to {}", counter.count);
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [b"counter", authority.key().as_ref()],
+        bump,
+    )]
+    pub counter: Account<'info, Counter>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(
+        mut,
+        seeds = [b"counter", authority.key().as_ref()],
+        bump,
+        has_one = authority,
+    )]
+    pub counter: Account<'info, Counter>,
+    pub authority: Signer<'info>,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct Counter {
+    pub count: u64,
+    pub authority: Pubkey,
+}
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Counter overflow")]
+    Overflow,
+}
+```
+
+The sections below break down each macro.
+
+### declare_id!
+
+Sets the program's on-chain address. By default, this matches the public key from `/target/deploy/my_counter-keypair.json`.
+
+```rust
+declare_id!("Cntr1111111111111111111111111111111111111111");
+```
+
+If the keypair and source code fall out of sync (for example, after cloning a repo), run:
+
+```shell
+anchor keys sync
+```
+
+<Warning>
+Anchor 1.0.0 checks that the `declare_id!` value matches the keypair file during `anchor build`. A mismatch produces a compile error. Use `anchor build --ignore-keys` to skip this check if needed.
+</Warning>
+
+### #[program]
+
+Defines the module containing your instruction handlers. Each public function in this module becomes a callable instruction:
+
+```rust
+#[program]
+pub mod my_counter {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        // instruction logic
+        Ok(())
+    }
+}
+```
+
+Every handler receives a `Context<T>` as its first parameter, where `T` is the accounts struct. Additional parameters become the instruction arguments that clients pass in.
+
+The `Context` struct provides:
+
+- `ctx.accounts` — the validated accounts
+- `ctx.program_id` — the program's public key
+- `ctx.remaining_accounts` — extra accounts not in the struct
+- `ctx.bumps` — PDA bump seeds found during validation
+
+### #[derive(Accounts)]
+
+Defines which accounts an instruction requires and how to validate them. Each field specifies an account with its type and constraints:
+
+```rust
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + Counter::INIT_SPACE,
+        seeds = [b"counter", authority.key().as_ref()],
+        bump,
+    )]
+    pub counter: Account<'info, Counter>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+Anchor validates all constraints before executing the instruction handler. If any check fails, the instruction aborts with a descriptive error.
+
+Common account types:
+
+| Type | Purpose |
+|------|---------|
+| `Account<'info, T>` | Deserialized account owned by this program |
+| `Signer<'info>` | Must have signed the transaction |
+| `SystemAccount<'info>` | Any system-owned account |
+| `Program<'info, T>` | An executable program account |
+| `UncheckedAccount<'info>` | No validation — use with explicit checks |
+
+### #[account]
+
+Defines the data layout for accounts your program creates. Anchor adds an 8-byte discriminator as a prefix to distinguish account types:
+
+```rust
+#[account]
+#[derive(InitSpace)]
+pub struct Counter {
+    pub count: u64,       // 8 bytes
+    pub authority: Pubkey, // 32 bytes
+}
+```
+
+The discriminator is the first 8 bytes of `SHA256("account:Counter")`. It is automatically set during `init` and verified during deserialization.
+
+## Account constraints
+
+Constraints are the core of Anchor's security model. They go inside `#[account(...)]` attributes and tell Anchor what to validate before executing your instruction.
+
+### Initialization constraints
+
+Create a new account and set its discriminator:
+
+```rust
+#[account(
+    init,
+    payer = authority,
+    space = 8 + Counter::INIT_SPACE,
+)]
+pub counter: Account<'info, Counter>,
+```
+
+The `init` constraint requires:
+- `payer` — the account paying the rent
+- `space` — total bytes (8-byte discriminator + your data)
+
+Use `init_if_needed` to create only if the account does not already exist. This requires the `init-if-needed` feature in your `Cargo.toml`:
+
+```toml
+[dependencies]
+anchor-lang = { version = "1.0.0", features = ["init-if-needed"] }
+```
+
+### PDA constraints
+
+Validate that an account is a PDA derived from specific seeds:
+
+```rust
+#[account(
+    seeds = [b"counter", authority.key().as_ref()],
+    bump,
+)]
+pub counter: Account<'info, Counter>,
+```
+
+When combined with `init`, this creates the PDA account:
+
+```rust
+#[account(
+    init,
+    payer = authority,
+    space = 8 + Counter::INIT_SPACE,
+    seeds = [b"counter", authority.key().as_ref()],
+    bump,
+)]
+pub counter: Account<'info, Counter>,
+```
+
+Anchor finds and stores the canonical bump automatically. Access it in your handler with `ctx.bumps.counter`.
+
+<Warning>
+Use fixed-length seeds or include a separator between variable-length seeds. Without this, `seeds = [b"ab", b"cd"]` and `seeds = [b"abcd"]` produce the same PDA, which can lead to seed collision vulnerabilities.
+</Warning>
+
+### Mutability and ownership
+
+```rust
+#[account(mut)]                          // Account must be mutable
+#[account(mut, has_one = authority)]      // Must be mutable AND counter.authority == authority.key()
+#[account(owner = some_program.key())]   // Account owned by a specific program
+#[account(close = destination)]          // Close account, send lamports to destination
+```
+
+### Reallocation
+
+Resize an existing account:
+
+```rust
+#[account(
+    mut,
+    realloc = 8 + NewLayout::INIT_SPACE,
+    realloc::payer = authority,
+    realloc::zero = false,
+)]
+pub data_account: Account<'info, NewLayout>,
+```
+
+### SPL token constraints
+
+Create or validate token accounts:
+
+```rust
+#[account(
+    init,
+    payer = authority,
+    token::mint = mint,
+    token::authority = authority,
+)]
+pub token_account: Account<'info, TokenAccount>,
+
+#[account(
+    init,
+    payer = authority,
+    mint::decimals = 6,
+    mint::authority = authority,
+)]
+pub mint: Account<'info, Mint>,
+```
+
+### Accessing instruction arguments in constraints
+
+Use `#[instruction(...)]` to reference instruction arguments in your constraints:
+
+```rust
+#[derive(Accounts)]
+#[instruction(title: String)]
+pub struct CreatePost<'info> {
+    #[account(
+        init,
+        payer = author,
+        space = 8 + 32 + 4 + title.len(),
+        seeds = [b"post", author.key().as_ref(), title.as_bytes()],
+        bump,
+    )]
+    pub post: Account<'info, Post>,
+    #[account(mut)]
+    pub author: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+<Warning>
+In Anchor 1.0.0, the compiler enforces that `#[instruction(...)]` argument types and order match the handler signature. Mismatches that were previously silent now produce errors.
+</Warning>
+
+## Space calculation
+
+Every account needs enough space for the 8-byte discriminator plus its data fields.
+
+### Type sizes
+
+| Type | Bytes |
+|------|-------|
+| `bool` | 1 |
+| `u8` / `i8` | 1 |
+| `u16` / `i16` | 2 |
+| `u32` / `i32` | 4 |
+| `u64` / `i64` | 8 |
+| `u128` / `i128` | 16 |
+| `Pubkey` | 32 |
+| `[T; N]` | `size(T) * N` |
+| `Vec<T>` | `4 + (size(T) * max_elements)` |
+| `String` | `4 + max_bytes` |
+| `Option<T>` | `1 + size(T)` |
+| `Enum` | `1 + largest_variant` |
+
+### Manual calculation
+
+```rust
+#[account]
+pub struct GameState {
+    pub player: Pubkey,    // 32
+    pub score: u64,        // 8
+    pub level: u16,        // 2
+    pub active: bool,      // 1
+}
+
+// Total: 8 (discriminator) + 32 + 8 + 2 + 1 = 51 bytes
+```
+
+### Using InitSpace
+
+The `InitSpace` derive macro calculates space automatically. Use `#[max_len(...)]` for dynamic types:
+
+```rust
+#[account]
+#[derive(InitSpace)]
+pub struct UserProfile {
+    pub authority: Pubkey,
+    #[max_len(50)]
+    pub username: String,           // 4 + 50 = 54 bytes
+    #[max_len(5, 50)]
+    pub interests: Vec<String>,     // 4 + (5 * (4 + 50)) = 274 bytes
+    pub points: u64,
+}
+
+// In the accounts struct:
+#[account(init, payer = authority, space = 8 + UserProfile::INIT_SPACE)]
+pub profile: Account<'info, UserProfile>,
+```
+
+The `#[max_len(5, 50)]` on `Vec<String>` means: up to 5 strings, each up to 50 bytes.
+
+## Building and the IDL
+
+Build your program:
+
+```shell
+anchor build
+```
+
+This produces three outputs:
+
+1. **Program binary** — `target/deploy/my_counter.so` — the compiled BPF bytecode.
+2. **IDL file** — `target/idl/my_counter.json` — a JSON description of your program's instructions, accounts, and types.
+3. **TypeScript types** — `target/types/my_counter.ts` — type definitions generated from the IDL.
+
+### IDL structure
+
+The IDL maps your Rust program to a format that clients can consume:
+
+```json
+{
+  "address": "Cntr1111111111111111111111111111111111111111",
+  "metadata": {
+    "name": "my_counter",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "initialize",
+      "discriminator": [175, 175, 109, 31, 13, 152, 155, 237],
+      "accounts": [
+        { "name": "counter", "writable": true, "pda": { ... } },
+        { "name": "authority", "writable": true, "signer": true },
+        { "name": "system_program", "address": "11111111111111111111111111111111" }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    { "name": "Counter", "discriminator": [255, 176, 4, 245, ...] }
+  ],
+  "types": [
+    { "name": "Counter", "type": { "kind": "struct", "fields": [...] } }
+  ]
+}
+```
+
+### On-chain IDL via Program Metadata Program
+
+Anchor 1.0.0 replaces the legacy IDL storage mechanism with the [Program Metadata Program (PMP)](https://github.com/solana-foundation/anchor/pull/3798). When you run `anchor program deploy`, the IDL is uploaded automatically. To skip the upload:
+
+```shell
+anchor program deploy --no-idl
+```
+
+## Testing
+
+Anchor 1.0.0 defaults to LiteSVM for Rust-based testing. LiteSVM runs an in-process Solana VM—faster startup and teardown than `solana-test-validator`.
+
+### TypeScript tests
+
+For TypeScript tests (generated with `--test-template mocha`), the test file uses `@anchor-lang/core`:
+
+```typescript
+import * as anchor from "@anchor-lang/core";
+import { Program } from "@anchor-lang/core";
+import { MyCounter } from "../target/types/my_counter";
+import { PublicKey } from "@solana/web3.js";
+import assert from "assert";
+
+describe("my-counter", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.myCounter as Program<MyCounter>;
+  const wallet = provider.wallet as anchor.Wallet;
+
+  it("initializes the counter", async () => {
+    const [counterPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("counter"), wallet.publicKey.toBuffer()],
+      program.programId
+    );
+
+    const tx = await program.methods
+      .initialize()
+      .accounts({
+        authority: wallet.publicKey,
+      })
+      .rpc();
+
+    const counter = await program.account.counter.fetch(counterPda);
+    assert.equal(counter.count.toNumber(), 0);
+    assert.ok(counter.authority.equals(wallet.publicKey));
+    console.log("Initialize tx:", tx);
+  });
+
+  it("increments the counter", async () => {
+    const [counterPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("counter"), wallet.publicKey.toBuffer()],
+      program.programId
+    );
+
+    const tx = await program.methods
+      .increment()
+      .accounts({
+        authority: wallet.publicKey,
+      })
+      .rpc();
+
+    const counter = await program.account.counter.fetch(counterPda);
+    assert.equal(counter.count.toNumber(), 1);
+    console.log("Increment tx:", tx);
+  });
+});
+```
+
+<Warning>
+Anchor 1.0.0 renamed the TypeScript package from `@coral-xyz/anchor` to `@anchor-lang/core`. All existing tutorials and Stack Overflow answers that show `@coral-xyz/anchor` need the import updated.
+</Warning>
+
+### Running tests
+
+Anchor 1.0.0 uses Surfpool as the default local validator for `anchor test`:
+
+```shell
+anchor test
+```
+
+This starts Surfpool, builds and deploys your program, runs the test suite, and shuts down the validator.
+
+To use the legacy solana-test-validator instead:
+
+```shell
+anchor test --validator legacy
+```
+
+To run tests against an already-running local validator:
+
+```shell
+anchor test --skip-local-validator
+```
+
+## Deploying
+
+### Local deployment
+
+Start a local validator and deploy:
+
+```shell
+solana-test-validator
+# In a separate terminal:
+anchor program deploy
+```
+
+<Tip>
+If `anchor program deploy` fails with a 503 error on `get_recommended_micro_lamport_fee`, pass a manual compute unit price:
+
+```shell
+anchor program deploy --with-compute-unit-price 1
+```
+
+This is a [known issue](https://github.com/solana-foundation/anchor/issues/4255) that affects some local RPC configurations.
+</Tip>
+
+### Deploying to devnet
+
+1. Set your cluster to devnet in `Anchor.toml`:
+
+```toml
+[provider]
+cluster = "Devnet"
+wallet = "~/.config/solana/id.json"
+```
+
+2. Fund your wallet:
+
+```shell
+solana airdrop 5 --url devnet
+```
+
+3. Build and deploy:
+
+```shell
+anchor build
+anchor program deploy
+```
+
+<Note>
+`anchor program deploy` in 1.0.0 automatically uploads the IDL to the on-chain Program Metadata Program. The IDL becomes fetchable by any client using `Program.fetchIdl`.
+</Note>
+
+### Deploying to mainnet with Chainstack
+
+1. [Deploy a Solana node](https://chainstack.com/build-better-with-solana/) on Chainstack or use the Chainstack Solana endpoint.
+
+2. Set your cluster to your Chainstack endpoint in `Anchor.toml`:
+
+```toml
+[provider]
+cluster = "https://solana-mainnet.core.chainstack.com/YOUR_CHAINSTACK_KEY"
+wallet = "~/.config/solana/id.json"
+```
+
+3. Build and deploy:
+
+```shell
+anchor build
+anchor program deploy
+```
+
+<Warning>
+Mainnet deployment requires real SOL. Verify your program thoroughly on devnet before deploying to mainnet.
+</Warning>
+
+## Client interaction
+
+The IDL enables typed client interactions. Anchor's TypeScript client (in the `@anchor-lang/core` package) deserializes accounts and instruction arguments automatically.
+
+### Connecting to a program
+
+```typescript
+import * as anchor from "@anchor-lang/core";
+import { Program } from "@anchor-lang/core";
+import { Connection, PublicKey, Keypair } from "@solana/web3.js";
+import { MyCounter } from "../target/types/my_counter";
+import idl from "../target/idl/my_counter.json";
+
+const CHAINSTACK_ENDPOINT = "CHAINSTACK_NODE_URL";
+const connection = new Connection(CHAINSTACK_ENDPOINT, "confirmed");
+
+// Load your wallet keypair from a JSON file (must be funded)
+import fs from "fs";
+const secretKey = Uint8Array.from(
+  JSON.parse(fs.readFileSync("/path/to/keypair.json", "utf-8"))
+);
+const wallet = new anchor.Wallet(Keypair.fromSecretKey(secretKey));
+const provider = new anchor.AnchorProvider(connection, wallet, {
+  commitment: "confirmed",
+});
+
+const program = new Program<MyCounter>(idl as MyCounter, provider);
+```
+
+<Note>
+The `anchor.workspace` object is only available inside `anchor test`. For standalone scripts and frontend code, load the IDL JSON file directly and instantiate the program with `new Program(idl, provider)`.
+</Note>
+
+### Sending transactions
+
+The wallet must be funded before sending transactions. On devnet, request an airdrop first:
+
+```typescript
+// Initialize
+const tx = await program.methods
+  .initialize()
+  .accounts({
+    authority: wallet.publicKey,
+  })
+  .rpc();
+
+console.log("Transaction signature:", tx);
+```
+
+### Fetching accounts
+
+```typescript
+const [counterPda] = PublicKey.findProgramAddressSync(
+  [Buffer.from("counter"), wallet.publicKey.toBuffer()],
+  program.programId
+);
+
+// Fetch a single account
+const counter = await program.account.counter.fetch(counterPda);
+console.log("Count:", counter.count.toNumber());
+console.log("Authority:", counter.authority.toBase58());
+
+// Fetch all counter accounts
+const allCounters = await program.account.counter.all();
+allCounters.forEach((item) => {
+  console.log("Address:", item.publicKey.toBase58());
+  console.log("Count:", item.account.count.toNumber());
+});
+
+// Fetch with filters
+const myCounters = await program.account.counter.all([
+  {
+    memcmp: {
+      offset: 16, // 8 discriminator + 8 count
+      bytes: wallet.publicKey.toBase58(),
+    },
+  },
+]);
+```
+
+### Listening to events
+
+If your program emits events with the `emit!` macro:
+
+```rust
+#[event]
+pub struct CounterIncremented {
+    pub authority: Pubkey,
+    pub new_count: u64,
+}
+
+// In your instruction handler:
+emit!(CounterIncremented {
+    authority: counter.authority,
+    new_count: counter.count,
+});
+```
+
+Subscribe from the client:
+
+```typescript
+const listener = program.addEventListener("counterIncremented", (event) => {
+  console.log("New count:", event.newCount.toNumber());
+});
+
+// Later, remove the listener:
+program.removeEventListener(listener);
+```
+
+## Common gotchas
+
+### CpiContext takes Pubkey, not AccountInfo
+
+Anchor 1.0.0 removed the redundant `AccountInfo` copy from `CpiContext`. If you are adapting pre-1.0 code:
+
+```rust
+// Pre-1.0 (broken in 1.0.0)
+CpiContext::new(
+    ctx.accounts.token_program.to_account_info(),
+    Transfer { ... }
+)
+
+// Anchor 1.0.0
+CpiContext::new(
+    ctx.accounts.token_program.key(),
+    Transfer { ... }
+)
+```
+
+### Duplicate mutable accounts are now rejected
+
+Passing the same mutable account twice in an instruction errors by default. If you intentionally need this, opt in with `dup`:
+
+```rust
+#[derive(Accounts)]
+pub struct SwapAccounts<'info> {
+    #[account(mut)]
+    pub account_a: Account<'info, TokenAccount>,
+    #[account(mut, dup)]
+    pub account_b: Account<'info, TokenAccount>,
+}
+```
+
+### AccountInfo is deprecated in Accounts structs
+
+Using `AccountInfo` directly inside `#[derive(Accounts)]` now produces a compile warning. Use `UncheckedAccount` instead:
+
+```rust
+// Deprecated
+pub some_account: AccountInfo<'info>,
+
+// Preferred
+/// CHECK: Validated in instruction logic
+pub some_account: UncheckedAccount<'info>,
+```
+
+### Space must include the 8-byte discriminator
+
+Every `init` constraint needs 8 extra bytes for the discriminator:
+
+```rust
+// Wrong — account will be too small
+#[account(init, payer = user, space = Counter::INIT_SPACE)]
+
+// Correct
+#[account(init, payer = user, space = 8 + Counter::INIT_SPACE)]
+```
+
+### Error codes are limited to one block
+
+Anchor 1.0.0 restricts `#[error_code]` to a single definition per program. If you have multiple error blocks, consolidate them:
+
+```rust
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Counter overflow")]
+    Overflow,
+    #[msg("Unauthorized")]
+    Unauthorized,
+    #[msg("Invalid input")]
+    InvalidInput,
+}
+```
+
+### Surfpool vs solana-test-validator
+
+`anchor test` now uses Surfpool by default. If you encounter compatibility issues:
+
+```shell
+# Fall back to the legacy validator
+anchor test --validator legacy
+```
+
+Surfpool is faster but less feature-complete than `solana-test-validator`. Use the legacy validator when you need full RPC method support or when cloning accounts from mainnet.
