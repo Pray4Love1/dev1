@@ -1,0 +1,632 @@
+---
+title: "Solana: Fast unit testing with LiteSVM"
+description: Test Solana programs in-process with LiteSVM — 10–100× faster than solana-test-validator, with time-travel, compute budgets, feature-gate control, and native Rust, TypeScript, and Python bindings.
+---
+
+**TLDR:**
+* LiteSVM boots a Solana virtual machine inside your test process. No validator, no RPC, no gossip — just an in-memory bank you drive directly from Rust, TypeScript, or Python.
+* It is 10–100× faster than `solana-test-validator` for unit tests, and the author of `solana-bankrun` has explicitly deprecated bankrun in favor of it.
+* Anchor v1.0.0 (Apr 2026) ships LiteSVM as the default test backend from `anchor init`. The Solana Foundation's dev-skill document lists LiteSVM alongside Mollusk as the unit-testing default.
+* This guide walks through the canonical testing stack (LiteSVM → Mollusk → Surfpool), loading and invoking your own program from Rust and TypeScript, Anchor integration via `anchor-litesvm`, SPL token helpers, clock and feature-gate manipulation, and the pitfalls that will trip up anyone coming from `solana-program-test` or bankrun.
+* All code is verified against [LiteSVM/litesvm](https://github.com/LiteSVM/litesvm) v0.11.0, the [litesvm](https://www.npmjs.com/package/litesvm) npm package v1.0.0, [brimigs/anchor-litesvm](https://github.com/brimigs/anchor-litesvm) v0.4.0, and [kevinheavey/solders](https://github.com/kevinheavey/solders) v0.27.1 as of April 2026.
+
+## Why LiteSVM
+
+Running every test against `solana-test-validator` is slow. Each suite spins up a full validator, waits for genesis, loads every built-in program, and then runs your transactions through the real consensus pipeline. For an iterative red-green-refactor loop, that overhead destroys flow.
+
+LiteSVM is the opposite: it constructs a minimal in-process `Bank` containing only the programs and accounts you need, exposes it through an ergonomic `LiteSVM` struct, and lets you send transactions and inspect state with no RPC round-trip. A typical unit test takes tens of milliseconds instead of tens of seconds.
+
+The tradeoff is that LiteSVM is not a validator. It does not replicate, it does not gossip, it does not model leader rotation, and its simulation of edge cases like compute-unit pricing, blockhash expiry, or sysvar rollover is opt-in. For end-to-end integration tests you still want [Surfpool](https://github.com/txtx/surfpool) or a real devnet fork. For unit tests — especially the tight loop where you are writing business logic and want fast feedback — LiteSVM is the current best practice.
+
+## Where LiteSVM fits
+
+Solana's modern testing stack is a pyramid. Each tier trades fidelity for speed and serves a different purpose.
+
+| Tier | Tool | Runs | Best for |
+|---|---|---|---|
+| Unit, single-instruction | [Mollusk](https://github.com/anza-xyz/mollusk) | In-process, single program, no bank state | Pure instruction logic, CU benchmarking, fixture-based regression |
+| Unit, multi-instruction | **LiteSVM** | In-process, full bank, sysvars, CPIs | End-to-end program flows, Anchor tests, token workflows |
+| Integration | [Surfpool](https://github.com/txtx/surfpool) | Local SVM with optional mainnet state fork | Cross-program state, realistic account layouts, RPC behavior |
+| End-to-end | Devnet / mainnet | Real network | Final validation before release |
+
+Mollusk is Anza's own minimal harness. It focuses on benchmarking a single instruction in isolation and is a better fit than LiteSVM when you want tight CU guarantees on a single entrypoint. The two tools are complementary — Anchor 1.0 ships docs for both.
+
+<Note>
+Under the hood, Surfpool uses LiteSVM as its execution engine. Understanding LiteSVM gives you the mental model for both.
+</Note>
+
+### What LiteSVM replaces
+
+| Incumbent | How LiteSVM compares |
+|---|---|
+| [`solana-test-validator`](https://docs.anza.xyz/developing/test-validator) | 10–100× faster, no process boundary, no port management. Use the validator when you need a real RPC server or cross-process integration. |
+| [`solana-program-test`](https://docs.rs/solana-program-test) | Same authors; LiteSVM is the modern successor for new projects. Supports all loaders including upgradeable v3/v4; faster; ergonomic API. `solana-program-test` is still maintained by Anza and works fine for existing test suites. |
+| [`solana-bankrun`](https://github.com/kevinheavey/solana-bankrun) | **Deprecated by its own author** in favor of the `litesvm` npm package. |
+
+## Install
+
+<CodeGroup>
+
+```bash Rust
+cargo add --dev litesvm
+```
+
+```bash TypeScript
+yarn add --dev litesvm
+# or: npm install --save-dev litesvm
+```
+
+```bash Python
+pip install solders
+# LiteSVM ships as `from solders.litesvm import LiteSVM`
+# There is no standalone `litesvm` package on PyPI.
+```
+
+</CodeGroup>
+
+<Warning>
+**Agave 3.1 hard pin.** LiteSVM 0.11.0 pins `agave-feature-set = 3.1.0` and the rest of the `solana-*` crates to 3.x. If your project still depends on `solana-sdk` 1.x or 2.x, you cannot mix crate versions — upgrade the whole project first. Rust MSRV is 1.86.
+</Warning>
+
+<Warning>
+**No native Windows support.** LiteSVM does not ship Windows binaries ([issue #215](https://github.com/LiteSVM/litesvm/issues/215)). The only supported path today is Docker or WSL2.
+</Warning>
+
+### Dependencies and pinning
+
+LiteSVM does not re-export the `solana-*` crates its API uses, so your `Cargo.toml` needs each one explicitly. Modern Solana has also dropped the monolithic `solana-sdk` in favor of fine-grained crates — the ones you actually need for a LiteSVM test are:
+
+```toml
+[dev-dependencies]
+litesvm = "0.11"
+litesvm-token = "0.11"
+solana-account = "3.2"
+solana-address = "2.0"
+solana-keypair = "3.1"
+solana-message = "3.0"
+solana-signer = "3.0"
+solana-system-interface = { version = "2.0", features = ["bincode"] }
+solana-transaction = "3.0"
+# If using Anchor (anchor-litesvm requires solana-account 3.4+):
+anchor-lang = "1.0"
+anchor-spl = "1.0"
+anchor-litesvm = "0.4"
+```
+
+Prefer caret-style constraints when everything resolves cleanly. If you hit drift — someone else's machine gets a different transitive version — lock the offending crate with `=` or a `Cargo.lock` committed to your repo.
+
+<Warning>
+`solana-system-interface` gates the free functions like `transfer`, `create_account` behind the `bincode` feature. Enable it or you will get `no function named 'transfer'` errors.
+</Warning>
+
+Version drift between these crates is the most common source of compile errors — people keep asking [variations of the same question on Solana Stack Exchange](https://solana.stackexchange.com/questions/tagged/litesvm). If you hit `no method named resize on AccountInfo` or `VersionedTransaction: From<Transaction> not satisfied`, the fix is almost always:
+
+```bash
+cargo update solana-account-info --precise 2.3.0
+# or pin the offending crate with a `=` requirement above.
+```
+
+## First test: transfer SOL
+
+The minimal test that exercises the full loop — airdrop, build a transaction, send it, read accounts back. No program of your own yet.
+
+<CodeGroup>
+
+```rust Rust
+use litesvm::LiteSVM;
+use solana_address::Address;
+use solana_keypair::Keypair;
+use solana_message::Message;
+use solana_signer::Signer;
+use solana_system_interface::instruction::transfer;
+use solana_transaction::Transaction;
+
+#[test]
+fn transfers_sol() {
+    let mut svm = LiteSVM::new();
+
+    let alice = Keypair::new();
+    let bob = Address::new_unique();
+
+    svm.airdrop(&alice.pubkey(), 10_000_000_000).unwrap();
+
+    let ix = transfer(&alice.pubkey(), &bob, 1_000_000_000);
+    let tx = Transaction::new(
+        &[&alice],
+        Message::new(&[ix], Some(&alice.pubkey())),
+        svm.latest_blockhash(),
+    );
+
+    svm.send_transaction(tx).unwrap();
+
+    assert_eq!(svm.get_balance(&bob).unwrap(), 1_000_000_000);
+}
+```
+
+```typescript TypeScript
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { LiteSVM } from "litesvm";
+import { getTransferSolInstruction } from "@solana-program/system";
+import {
+  appendTransactionMessageInstruction,
+  createTransactionMessage,
+  generateKeyPairSigner,
+  lamports,
+  pipe,
+  setTransactionMessageFeePayerSigner,
+  signTransactionMessageWithSigners,
+} from "@solana/kit";
+
+test("transfers SOL", async () => {
+  const svm = new LiteSVM();
+  const alice = await generateKeyPairSigner();
+  const bob = await generateKeyPairSigner();
+  svm.airdrop(alice.address, lamports(10_000_000_000n));
+
+  const ix = getTransferSolInstruction({
+    source: alice,
+    destination: bob.address,
+    amount: lamports(1_000_000_000n),
+  });
+
+  const tx = await pipe(
+    createTransactionMessage({ version: 0 }),
+    (m) => setTransactionMessageFeePayerSigner(alice, m),
+    (m) => svm.setTransactionMessageLifetimeUsingLatestBlockhash(m),
+    (m) => appendTransactionMessageInstruction(ix, m),
+    (m) => signTransactionMessageWithSigners(m),
+  );
+  svm.sendTransaction(tx);
+
+  assert.strictEqual(svm.getBalance(bob.address), lamports(1_000_000_000n));
+});
+```
+
+```python Python
+from solders.keypair import Keypair
+from solders.litesvm import LiteSVM
+from solders.message import Message
+from solders.system_program import transfer, TransferParams
+from solders.transaction import Transaction
+from solders.transaction_metadata import TransactionMetadata
+
+
+def test_transfers_sol():
+    svm = LiteSVM()
+
+    alice = Keypair()
+    bob = Keypair().pubkey()
+
+    svm.airdrop(alice.pubkey(), 10_000_000_000)
+
+    ix = transfer(
+        TransferParams(
+            from_pubkey=alice.pubkey(),
+            to_pubkey=bob,
+            lamports=1_000_000_000,
+        )
+    )
+    msg = Message.new_with_blockhash(
+        [ix], alice.pubkey(), svm.latest_blockhash()
+    )
+    tx = Transaction([alice], msg, msg.recent_blockhash)
+    res = svm.send_transaction(tx)
+    assert isinstance(res, TransactionMetadata)
+
+    assert svm.get_balance(bob) == 1_000_000_000
+```
+
+</CodeGroup>
+
+The default `LiteSVM::new()` already ships the System Program, SPL Token, and a handful of other core programs loaded, sysvars initialized, and the fee-payer airdrop pubkey funded. Everything else you add explicitly.
+
+## Load and invoke your own program
+
+Compile the program once, then point LiteSVM at the `.so`. Every test starts from a fresh VM — no cross-test contamination.
+
+### 1. Build the program
+
+```bash
+# In your program crate:
+cargo build-sbf
+# Produces target/deploy/<program_name>.so
+```
+
+<Note>
+Even after Anchor 1.0 removed the Solana CLI requirement for `anchor test`, you still need the Agave toolchain (`cargo-build-sbf` or `cargo-build-bpf`) to compile programs. LiteSVM loads `.so` bytes — it does not compile them.
+</Note>
+
+### 2. Load and invoke
+
+<CodeGroup>
+
+```rust Rust
+use litesvm::LiteSVM;
+use solana_address::Address;
+use solana_instruction::{AccountMeta, Instruction};
+use solana_keypair::Keypair;
+use solana_message::Message;
+use solana_signer::Signer;
+use solana_transaction::Transaction;
+
+#[test]
+fn counter_increments() {
+    let program_id: Address = "CounterProg11111111111111111111111111111111"
+        .parse()
+        .unwrap();
+
+    let mut svm = LiteSVM::new();
+    svm.add_program_from_file(program_id, "target/deploy/counter.so")
+        .unwrap();
+
+    let payer = Keypair::new();
+    svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+
+    let counter = Address::new_unique();
+    // Your program would normally create this PDA; we short-circuit for brevity.
+    svm.set_account(
+        counter,
+        solana_account::Account {
+            lamports: svm.minimum_balance_for_rent_exemption(4),
+            data: vec![0, 0, 0, 0],
+            owner: program_id,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .unwrap();
+
+    let ix = Instruction {
+        program_id,
+        accounts: vec![AccountMeta::new(counter, false)],
+        data: vec![0], // Instruction discriminator for `increment`.
+    };
+    let tx = Transaction::new(
+        &[&payer],
+        Message::new(&[ix], Some(&payer.pubkey())),
+        svm.latest_blockhash(),
+    );
+    svm.send_transaction(tx).unwrap();
+
+    let after = svm.get_account(&counter).unwrap();
+    assert_eq!(u32::from_le_bytes(after.data[..4].try_into().unwrap()), 1);
+}
+```
+
+```typescript TypeScript
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { LiteSVM } from "litesvm";
+import { address } from "@solana/kit";
+
+test("counter increments", () => {
+  const svm = new LiteSVM();
+  const programId = address("CounterProg11111111111111111111111111111111");
+  svm.addProgramFromFile(programId, "target/deploy/counter.so");
+
+  // …build, sign, and send the increment instruction as in the first example.
+});
+```
+
+</CodeGroup>
+
+`add_program_from_file` loads a BPF loader v2 program by default. If you need the upgradeable loader (loader v3) or loader v4, use `add_program_with_loader`.
+
+### Set accounts directly
+
+You can prepopulate any account without running a transaction. This is the single most useful test primitive LiteSVM offers over `solana-test-validator`.
+
+```rust
+svm.set_account(
+    some_pda,
+    solana_account::Account {
+        lamports: svm.minimum_balance_for_rent_exemption(data.len()),
+        data,
+        owner: program_id,
+        executable: false,
+        rent_epoch: 0,
+    },
+)
+.unwrap();
+```
+
+Use it to seed PDAs, reproduce mainnet state by copying accounts from an RPC snapshot, or set up adversarial scenarios that would take dozens of instructions to build up organically.
+
+### Cloning real accounts from mainnet
+
+When you need an actual token mint, program state, or any other on-chain account, there are two practical paths.
+
+**Option 1 — Dump the raw account with the Solana CLI:**
+
+```bash
+solana account \
+  -u https://solana-mainnet.core.chainstack.com/<YOUR-KEY> \
+  EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v \
+  --output-file usdc-mint.bin
+```
+
+The `.bin` file is the raw account data. Pack it into `solana_account::Account` and hand it to `svm.set_account`. You still need to supply `lamports` and `owner` — fetch those with `solana account <ADDR> --output json-compact` in the same call.
+
+**Option 2 — Fetch at test time via Chainstack RPC:**
+
+Use an async `RpcClient::get_account` in your test harness to pull the live state, then `set_account` it into the SVM. This is how [Surfpool's mainnet-fork mode](https://github.com/txtx/surfpool) operates under the hood. If you find yourself doing this often, prefer Surfpool — it is purpose-built for mainnet-backed testing.
+
+Either way, do not fake mint data with `data: vec![5]` or similar placeholder bytes. Anchor will reject the account with `AccountNotInitialized (3012)`. Copy real bytes, or construct a proper `spl_token::state::Mint` and serialize it with `Pack::pack`.
+
+## Time travel: clock and slots
+
+Testing time-dependent logic is the reason most teams move off `solana-test-validator`. LiteSVM exposes the clock sysvar directly.
+
+```typescript
+import { LiteSVM } from "litesvm";
+
+const svm = new LiteSVM();
+
+// Jump ahead 1000 slots.
+svm.warpToSlot(1000n);
+
+// Set an arbitrary unix timestamp (useful for vesting, auctions, staking).
+const clock = svm.getClock();
+clock.unixTimestamp = 1_735_689_600n; // 2025-01-01 UTC
+svm.setClock(clock);
+```
+
+Rust has the same surface via `warp_to_slot` and `set_sysvar::<Clock>`. Python uses `svm.warp_to_slot(1000)` and `svm.set_sysvar(clock)`.
+
+<Warning>
+**Address Lookup Tables need recent slots.** If you create an ALT in a LiteSVM test, the ALT program rejects it with `"N is not a recent slot"` unless the slot is inside the recency window. Call `svm.warp_to_slot(n)` to advance past zero before creating the table, and `svm.expire_blockhash()` between groups of transactions to avoid `BlockhashNotFound` on reused hashes. See [Solana SE #22783](https://solana.stackexchange.com/questions/22783).
+</Warning>
+
+## SPL tokens
+
+The `@solana/spl-token` JavaScript helpers expect a real RPC and do not work against LiteSVM. The LiteSVM team publishes `litesvm-token` for Rust, which wraps the mint/account setup boilerplate.
+
+```rust
+use litesvm::LiteSVM;
+use litesvm_token::{CreateAssociatedTokenAccount, CreateMint, MintTo, get_spl_account};
+use litesvm_token::spl_token::state::{Account as TokenAccount, Mint};
+use solana_keypair::Keypair;
+use solana_native_token::LAMPORTS_PER_SOL;
+use solana_signer::Signer;
+
+#[test]
+fn mints_and_transfers() {
+    let svm = &mut LiteSVM::new();
+
+    let payer = Keypair::new();
+    svm.airdrop(&payer.pubkey(), 10 * LAMPORTS_PER_SOL).unwrap();
+
+    let mint = CreateMint::new(svm, &payer).decimals(6).send().unwrap();
+    let ata = CreateAssociatedTokenAccount::new(svm, &payer, &mint).send().unwrap();
+    MintTo::new(svm, &payer, &mint, &ata, 1_000_000).send().unwrap();
+
+    let account: TokenAccount = get_spl_account(svm, &ata).unwrap();
+    assert_eq!(account.amount, 1_000_000);
+
+    let mint_state: Mint = get_spl_account(svm, &mint).unwrap();
+    assert_eq!(mint_state.decimals, 6);
+}
+```
+
+For TypeScript there is no equivalent helper crate today. The canonical workaround is to build the `spl-token` instructions manually and send them via `svm.sendTransaction`. See [LiteSVM's SPL token docs](https://www.litesvm.com/docs/testing-with-spl-tokens) for the complete pattern.
+
+## Anchor integration
+
+Anchor v1.0.0 (released 2026-04-02) made LiteSVM the default unit-test backend for `anchor init`. For idiomatic Anchor tests you have two options.
+
+### Option 1: raw `litesvm` + `anchor-lang::declare_program!`
+
+Hand-assemble instructions against an Anchor IDL. Verbose but dependency-free beyond LiteSVM itself.
+
+### Option 2: `anchor-litesvm` (recommended for most Anchor projects)
+
+[`anchor-litesvm`](https://github.com/brimigs/anchor-litesvm) wraps LiteSVM with Anchor-aware sugar: discriminator derivation, account-struct binding, event parsing, token helpers. The maintainer claims ~78% less boilerplate than raw LiteSVM for typical Anchor flows.
+
+```rust
+use anchor_litesvm::{AnchorLiteSVM, AssertionHelpers, TestHelpers};
+
+anchor_lang::declare_program!(my_program);
+
+#[test]
+fn initialize_succeeds() {
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        my_program::ID,
+        include_bytes!("../target/deploy/my_program.so"),
+    );
+
+    let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
+
+    let ix = ctx.program()
+        .accounts(my_program::client::accounts::Initialize {
+            user: user.pubkey(),
+            system_program: solana_system_interface::program::ID,
+        })
+        .args(my_program::client::args::Initialize { amount: 100 })
+        .instruction()
+        .unwrap();
+
+    ctx.execute_instruction(ix, &[&user])
+        .unwrap()
+        .assert_success();
+}
+```
+
+<Note>
+`anchor-litesvm` is maintained by a single author and has a short release history (v0.4.0, published 2026-04-09). The API is stable against Anchor 1.0 + LiteSVM 0.11, but for long-running production test suites pin exact versions and watch the upstream for compatibility bumps.
+</Note>
+
+## Compute budget and CU benchmarking
+
+Two ways to tighten the compute budget in a LiteSVM test.
+
+**Per-transaction** (same API as production — prefer this):
+
+```rust
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+
+let cb_ix = ComputeBudgetInstruction::set_compute_unit_limit(50_000);
+// Prepend `cb_ix` to your instructions when building the transaction.
+```
+
+**VM-level** for every transaction in the test:
+
+```rust
+use litesvm::LiteSVM;
+use solana_compute_budget::compute_budget::ComputeBudget;
+
+// `new_with_defaults(simd_0268_active, simd_0339_active)` — false/false
+// matches current mainnet-beta. `Default::default()` is gated behind
+// `dev-context-only-utils` in `solana-compute-budget` and is not a
+// stable public API.
+let mut cb = ComputeBudget::new_with_defaults(false, false);
+cb.compute_unit_limit = 50_000;
+
+let svm = LiteSVM::new().with_compute_budget(cb);
+```
+
+If a transaction exceeds the budget, `send_transaction` returns a `FailedTransactionMetadata` with the CU overrun in its logs. Pair this with snapshot-style assertions in CI to alert on CU growth the moment a change lands.
+
+For pure single-instruction CU benchmarking, reach for [Mollusk](https://github.com/anza-xyz/mollusk) instead — it is purpose-built for that one job.
+
+## Feature gates
+
+LiteSVM 0.11 exposes the full Agave `FeatureSet`. Use it to test behavior against future runtime semantics before the feature gate activates on mainnet.
+
+```rust
+use litesvm::LiteSVM;
+use agave_feature_set::FeatureSet;
+
+// Start from all active features, then disable one you want to simulate a pre-activation env for.
+let mut features = FeatureSet::all_enabled();
+features.deactivate(&some_feature::id());
+
+let svm = LiteSVM::new().with_feature_set(features);
+```
+
+This is particularly useful for validating behavior during the activation window of a SIMD that is live on one cluster but not yet on another.
+
+## Custom syscalls
+
+LiteSVM 0.11 lets you register your own syscalls. This is niche but invaluable when testing programs that link against syscalls you want to stub or intercept.
+
+```rust
+use litesvm::LiteSVM;
+
+let svm = LiteSVM::new().with_custom_syscall(/* name */, /* function pointer */);
+```
+
+See [`tests/custom_syscall.rs`](https://github.com/LiteSVM/litesvm/blob/v0.11.0/crates/litesvm/tests/custom_syscall.rs) in the LiteSVM repo for the signature and a worked example.
+
+## Pitfalls
+
+Most of these come straight from the LiteSVM issue tracker and community channels — they trip up almost everyone coming from `solana-test-validator`.
+
+### Agave 3.1 lock
+
+LiteSVM 0.11 pins `agave-feature-set = 3.1.0` and all `solana-*` crates to 3.x. A project that still depends on `solana-sdk` 1.x or 2.x will hit transitive-version conflicts the moment you add LiteSVM. Upgrade the whole dependency tree to Solana 3.x first, or stay on an older LiteSVM — [0.7.1](https://github.com/LiteSVM/litesvm/releases/tag/v0.7.1) is the last release before the Solana 3.0 bump ([0.8.0 #223](https://github.com/LiteSVM/litesvm/pull/223)).
+
+### `@solana/spl-token` does not work
+
+The high-level helpers (`createMint`, `createAssociatedTokenAccount`, …) in `@solana/spl-token` assume a real RPC. They will not work against LiteSVM. Build the SPL-token instructions by hand and send them via `svm.sendTransaction`, or use the Rust `litesvm-token` crate.
+
+### BPF upgradeable loader auto-load
+
+Programs deployed via the upgradeable loader (BPF v3) are not always re-registered for subsequent transactions — see [issue #240](https://github.com/LiteSVM/litesvm/issues/240) and [issue #263](https://github.com/LiteSVM/litesvm/issues/263). Until this is resolved, prefer `add_program_from_file` (loader v2) for tests unless you specifically need loader v3/v4 semantics.
+
+### Python bindings lag Rust and JS
+
+`solders` 0.27.1 — the PyPI package that ships the Python LiteSVM bindings — was released 2025-11-15. The Rust crate has since shipped feature-gate accounts, custom syscalls, and p-token binary loading in 0.10 and 0.11. Python callers do not have those features yet. For Python-primary projects, pin `solders` explicitly and budget for a version lag.
+
+### No standalone `litesvm` on PyPI
+
+There is no separate `litesvm` Python package. You install `solders` and import `from solders.litesvm import LiteSVM`. The Python docs live at [kevinheavey.github.io/solders/tutorials/litesvm.html](https://kevinheavey.github.io/solders/tutorials/litesvm.html).
+
+### `DeclaredProgramIdMismatch (4100)` in Anchor tests
+
+Anchor programs bake their ID into `declare_id!`. When you load the `.so` into LiteSVM you must pass the same ID — not the program's on-chain deploy ID, not a freshly generated one. Running `anchor keys sync` updates `declare_id!` in source but does not touch the keypair LiteSVM loads. Easiest fix: read the keypair your build produced.
+
+```rust
+use solana_keypair::read_keypair_file;
+use solana_signer::Signer;
+
+let kp = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+svm.add_program_from_file(kp.pubkey(), "target/deploy/my_program.so").unwrap();
+```
+
+### Anchor discriminator when decoding accounts
+
+`svm.get_account(&pda).data` gives you the raw account buffer including Anchor's 8-byte discriminator. Skip those bytes before borsh-deserializing, or use `Account::try_deserialize` which handles it for you.
+
+```rust
+use anchor_lang::AccountDeserialize;
+let data = svm.get_account(&pda).unwrap().data;
+let state = MyAccount::try_deserialize(&mut &data[..]).unwrap();
+```
+
+Manual borsh against `&data[..]` (without the 8-byte skip) is the most common cause of `InstructionDidNotDeserialize`.
+
+### Error visibility
+
+By default, a failed transaction gives you `FailedTransactionMetadata` but no logs. Pull them explicitly.
+
+<CodeGroup>
+
+```rust Rust
+if let Err(meta) = svm.send_transaction(tx) {
+    for log in &meta.meta.logs {
+        eprintln!("{}", log);
+    }
+}
+```
+
+```typescript TypeScript
+const res = svm.sendTransaction(tx);
+if (res instanceof FailedTransactionMetadata) {
+  console.error(res.err());
+  console.error(res.meta()?.logs);
+}
+```
+
+</CodeGroup>
+
+`svm.getTransaction(signature)` returns `null` by default in LiteSVM — transaction history storage is opt-in via `.with_transaction_history(capacity)`.
+
+### Precompile syscalls require a feature flag
+
+Tests that exercise `secp256k1`, `secp256r1`, or `ed25519` precompiles need both the `precompiles` crate feature and the `agave-precompiles` dev-dep. Without them the precompile verifier silently fails.
+
+```toml
+[dev-dependencies]
+litesvm = { version = "=0.11.0", features = ["precompiles"] }
+agave-precompiles = "3.1"
+```
+
+### gRPC vs RPC simulation divergence
+
+[Issue #317](https://github.com/LiteSVM/litesvm/issues/317), filed 2026-04-03 and still open, reports divergence in simulation output between gRPC and RPC paths. If you rely on simulation results for pre-flight logic, cross-check against a real validator before shipping to production.
+
+### No Windows binaries
+
+[Issue #215](https://github.com/LiteSVM/litesvm/issues/215) has been open since September 2025. Docker or WSL2 is the only path on Windows. Teams with mixed-OS developer machines should set this expectation up front.
+
+## When not to use LiteSVM
+
+Reach for a different tool if any of these apply:
+
+- You need to test network effects, leader rotation, or gossip behavior. Use a real local cluster.
+- You need mainnet state or cross-program interactions with deployed programs you do not control. Use [Surfpool](https://github.com/txtx/surfpool) with its mainnet-fork mode.
+- You are running a Windows-only build environment and cannot use Docker. Stick with `solana-test-validator` until LiteSVM ships Windows binaries.
+- You want CU-accurate benchmarking of a single instruction. Use [Mollusk](https://github.com/anza-xyz/mollusk) — LiteSVM's compute budget is good enough for regression detection but Mollusk is purpose-built for the measurement itself.
+
+## See also
+
+- [Solana: Anchor development](/docs/solana-anchor-development) — where Anchor 1.0 makes LiteSVM the default test backend.
+- [Solana: Program derived addresses and cross-program invocations](/docs/solana-program-derived-addresses-and-cross-program-invocations) — the account-layout knowledge you need to write meaningful LiteSVM tests.
+- [Solana: Escrow pattern](/docs/solana-escrow-pattern) — a full DeFi primitive you can unit-test in LiteSVM in <100 ms.
+- [LiteSVM reference docs (Rust)](https://docs.rs/litesvm/latest/litesvm/).
+- [LiteSVM TypeScript docs](https://litesvm.github.io/litesvm/).
+- [solders LiteSVM tutorial (Python)](https://kevinheavey.github.io/solders/tutorials/litesvm.html).
+- [anchor-litesvm on crates.io](https://crates.io/crates/anchor-litesvm).
+- [Mollusk](https://github.com/anza-xyz/mollusk) — Anza's single-instruction harness.
+- [Surfpool](https://github.com/txtx/surfpool) — integration-tier SVM with mainnet-fork support.
