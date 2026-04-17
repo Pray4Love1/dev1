@@ -329,3 +329,11 @@ Running `anchor deploy` against a running Surfpool sometimes fails with `Failed 
 - [Anchor v1.0.0 release notes](https://github.com/solana-foundation/anchor/releases/tag/v1.0.0) — the PR that made Surfpool default.
 - [Helius: Introducing Surfpool](https://www.helius.dev/blog/surfpool) — conceptual intro and lazy-fork explanation.
 - [Blueshift: Surfpool 101](https://learn.blueshift.gg/en/courses/testing-with-surfpool/surfpool-101) — interactive course.
+
+## Reference repos
+
+These are the source repositories we worked against while writing this guide. They stay closer to reality than docs — check them first when something here looks off.
+
+- [txtx/surfpool](https://github.com/txtx/surfpool) — Surfpool source; `crates/core/src/rpc/surfnet_cheatcodes.rs` is the authoritative cheatcode surface — check here when signatures look off
+- [solana-foundation/anchor](https://github.com/solana-foundation/anchor) — Anchor 1.0 is Surfpool-native; `[surfpool]` section semantics and `online = true` behavior live here
+- [anza-xyz/mollusk](https://github.com/anza-xyz/mollusk) — alternative lightweight runtime referenced when Surfpool's overlay model isn't the right fit

@@ -965,3 +965,12 @@ On the client, `seed.toArrayLike(Buffer, "le", 8)` produces the 8-byte little-en
 - [`solana-foundation/solana-bootcamp-2026` `04-escrow`](https://github.com/solana-foundation/solana-bootcamp-2026/tree/main/04-escrow) — maker/take/refund with LiteSVM tests
 - [`solana-developers/program-examples` `tokens/escrow`](https://github.com/solana-developers/program-examples/tree/main/tokens/escrow) — parallel native Rust and Anchor implementations
 - [`solana-program/escrow`](https://github.com/solana-program/escrow) — an alternative production-grade escrow program maintained by the Solana Program Library. It uses a different architecture (TLV-encoded state with pluggable Timelock, Hook, Arbiter, and Block-Token-Extensions modules) and is admin-controlled rather than peer-to-peer; consider it when you need those lifecycle hooks or an arbitrator role. The Anchor maker/taker pattern in this guide is simpler and more suitable when two parties swap directly without governance.
+
+## Reference repos
+
+These are the source repositories we worked against while writing this guide. They stay closer to reality than docs — check them first when something here looks off.
+
+- [solana-developers/program-examples](https://github.com/solana-developers/program-examples) — canonical escrow examples (`tokens/escrow`); instruction flow and account layout verified here
+- [solana-program/escrow](https://github.com/solana-program/escrow) — SPL escrow reference; canonical for the vault-PDA ownership pattern
+- [solana-foundation/anchor](https://github.com/solana-foundation/anchor) — Anchor 1.0 test suite includes `tests/escrow`; check for Anchor-idiomatic patterns
+- [solana-foundation/solana-bootcamp-2026](https://github.com/solana-foundation/solana-bootcamp-2026) — bootcamp's `04-escrow` project cross-checked the maker, take, and refund flow
