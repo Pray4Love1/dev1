@@ -1,0 +1,733 @@
+---
+title: "Solana: Zero-knowledge proofs with Noir and Groth16"
+description: Write zero-knowledge circuits in Noir, prove them with Groth16, and verify them on-chain on Solana using the alt_bn128 syscalls and Sunspot toolchain.
+---
+
+**TLDR:**
+* Solana has the primitives to verify Groth16 zero-knowledge proofs on-chain — the `alt_bn128` syscalls handle BN254 pairing, and `sol_poseidon` handles the hashing. Verification typically costs 170K–500K compute units depending on circuit complexity and public-input count; budget explicitly.
+* Noir is the cleanest way to write a circuit in 2026, but its default backend (Barretenberg/UltraHonk) does not produce Groth16 proofs — you must use [Sunspot](https://github.com/reilabs/sunspot) to compile Noir ACIR to Gnark-Groth16 and generate a Solana verifier program.
+* The Poseidon in Noir's stdlib is *not* byte-compatible with the `sol_poseidon` syscall. Use the [noir-lang/poseidon](https://github.com/noir-lang/poseidon) library instead — it matches circomlib, which is what the syscall implements.
+* This guide walks two circuits end to end: a trivial `x != y` assertion to exercise the pipeline, and a sparse-Merkle-tree blacklist exclusion proof that demonstrates the real-world pattern of a Solana program doing a CPI to the verifier.
+* All code is verified against [solana-foundation/noir-examples](https://github.com/solana-foundation/noir-examples) (the canonical reference) and [reilabs/sunspot](https://github.com/reilabs/sunspot) as of April 2026.
+
+## Why verify zero-knowledge proofs on Solana
+
+A zero-knowledge proof lets a prover convince a verifier that some computation was performed correctly, without revealing the private inputs. On Solana, this unlocks patterns that are structurally impossible with plain accounts:
+
+- **Private membership** — prove you hold a credential or belong to a set without revealing which one.
+- **Off-chain computation with on-chain settlement** — execute heavy logic off-chain, post a succinct proof, pay verification cost in constant time.
+- **Confidential state transitions** — prove a transition is valid without publishing the full pre-state.
+- **Signature aggregation and threshold schemes** — verify complex cryptography (BLS, ECDSA, Schnorr) inside a circuit and produce a single Groth16 proof.
+
+Solana runs Groth16 verification in roughly 170,000–500,000 compute units, depending on circuit complexity and the number of public inputs. Simple circuits fit within the default 200,000-CU per-instruction budget; heavier circuits need an explicit `SetComputeUnitLimit`. Either way, verification cost is bounded and predictable, which is what makes ZK on Solana usable as a primitive rather than a novelty.
+
+Production deployments already rely on this path. Light Protocol's [ZK Compression](https://www.zkcompression.com/) proves the validity of compressed-account state transitions using the same `alt_bn128` syscalls, on mainnet, every slot.
+
+<Note>
+This guide assumes basic Solana program development experience. If you are new to Solana programs, start with [Solana: Anchor development](/docs/solana-anchor-development) and [Solana: Program derived addresses and cross-program invocations](/docs/solana-program-derived-addresses-and-cross-program-invocations).
+</Note>
+
+### What this guide is not
+
+Three distinct things share the "ZK on Solana" label. This guide covers one of them:
+
+| Topic | What it is | Covered here |
+|---|---|---|
+| **Custom Groth16 verification** | Deploy your own on-chain verifier program, write circuits in Noir, prove Groth16, verify via `alt_bn128` syscalls | ✅ This guide |
+| **ZK Compression** | Light Protocol's mainnet state-compression layer. Uses Groth16 under the hood but exposed as a managed service, not a circuit-writing flow | ❌ See [ZK Compression docs](https://www.zkcompression.com/) |
+| **Token-2022 Confidential Transfers / ZK ElGamal Proof Program** | Native Solana proof program for encrypted token balances, using ElGamal and Bulletproofs, not Groth16 | ❌ See [Agave ZK ElGamal docs](https://docs.anza.xyz/runtime/zk-docs/zk-elgamal-proof) |
+
+Conflating these is the single most common source of confusion in existing community discussion. If you are building a confidential token transfer, you want the third. If you are building compressed accounts, the second. If you are writing your own circuit with custom constraints and want to verify the resulting proof on-chain, read on.
+
+## The stack
+
+There are five moving parts. Understanding what each one does and where the boundaries are will save you a lot of debugging.
+
+| Piece | Role | Where it runs |
+|---|---|---|
+| [Noir](https://noir-lang.org/) | Write the circuit in a Rust-like DSL. Compiles to ACIR (an arithmetic-circuit intermediate representation). | Off-chain, in your editor |
+| [Sunspot](https://github.com/reilabs/sunspot) | Translate ACIR to Gnark's constraint system (CCS), run Groth16 setup, generate proofs, and build a Solana verifier program with the verifying key baked in. | Off-chain, CLI tool |
+| [Gnark](https://github.com/Consensys/gnark) | The Groth16 proving backend Sunspot uses under the hood. | Off-chain, library |
+| `alt_bn128` syscalls | BN254 pairing check and elliptic-curve arithmetic. What the on-chain verifier calls to validate the proof. | On-chain, Agave runtime |
+| `sol_poseidon` syscall | Poseidon hash over BN254. Used when your Solana program needs to recompute a hash that was also computed inside the circuit. | On-chain, Agave runtime |
+
+The end-to-end flow is:
+
+```
+┌─────────────┐   ┌──────────────┐   ┌──────────────┐   ┌─────────────┐
+│ Noir source │──▶│ nargo compile│──▶│ sunspot      │──▶│ sunspot     │
+│  main.nr    │   │ (ACIR bytes) │   │ compile      │   │ setup       │
+└─────────────┘   └──────────────┘   │ (CCS)        │   │ (pk, vk)    │
+                                      └──────────────┘   └─────────────┘
+                                                                 │
+                                                                 ▼
+┌─────────────┐   ┌──────────────┐   ┌──────────────┐   ┌─────────────┐
+│  Solana     │◀──│ solana deploy│◀──│ sunspot      │◀──│ sunspot     │
+│  verifier   │   │ (.so)        │   │ deploy       │   │ prove       │
+│  program    │   │              │   │ (verifier)   │   │ (.proof)    │
+└─────────────┘   └──────────────┘   └──────────────┘   └─────────────┘
+```
+
+### Why Noir's default backend is not enough
+
+Noir compiles to ACIR. The default Noir backend — Barretenberg's `bb` CLI, distributed with `nargo` — produces **UltraHonk** proofs. UltraHonk and Groth16 both use the BN254 curve, but UltraHonk is a KZG-based proving system and its verifier needs polynomial-commitment operations that Solana does not expose as syscalls. The `alt_bn128` syscalls cover G1/G2 arithmetic and pairing — enough for Groth16 — but not the multi-point KZG openings UltraHonk relies on. That gap, not the curve, is why you must route Noir through Sunspot to target Solana today.
+
+Sunspot fills this gap. It reads the ACIR bytecode Noir emits, translates it to Gnark's constraint system, runs a Groth16 setup over BN254, and generates a Solana program that uses `alt_bn128` pairing to verify the resulting proofs. This is the only production path from Noir to Solana today.
+
+<Warning>
+Sunspot has not been audited. From the project's README: **"Sunspot has not been audited yet and is provided as-is. We make no guarantees to its safety or reliability."** Additionally, `sunspot setup` performs a Groth16 trusted setup **with no MPC ceremony or toxic-waste mitigation** — whoever runs it holds the trapdoor. For production use, you must either run a proper multi-party ceremony (for example using Gnark's `phase2` tooling or a Perpetual Powers of Tau contribution) or accept that your verifier's soundness rests on the setup operator's honesty.
+</Warning>
+
+## Prerequisites
+
+- A Chainstack [Solana node endpoint](/docs/solana-development) — devnet is fine for this guide; mainnet if you want to test production paths.
+- [Solana CLI](https://solana.com/docs/intro/installation) 3.x or later.
+- [Rust](https://www.rust-lang.org/tools/install) 1.94.0 or later (via rustup, not Homebrew — the Homebrew Rust is often too old).
+- [Node.js](https://nodejs.org/) 18+ and [pnpm](https://pnpm.io/).
+- [Go](https://go.dev/dl/) 1.24+ (required by Sunspot).
+- [just](https://github.com/casey/just) (task runner used by the reference repo).
+
+### Pin a coherent toolchain
+
+Noir, Sunspot, and the examples repo all move fast. Versions drift. The combination known to work end-to-end as of April 2026 is:
+
+- Noir (`nargo`) — `1.0.0-beta.18` (Sunspot's hard requirement).
+- Sunspot — latest `main` branch.
+- Solana CLI — 3.1.x or later.
+- Gnark — pulled automatically by Sunspot's Go module.
+
+```bash
+# Install noirup
+curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
+source ~/.bashrc  # or your shell's rc file
+
+# Pin the Noir version
+noirup -v 1.0.0-beta.18
+
+# Verify
+nargo --version
+# Expected: nargo version = 1.0.0-beta.18
+```
+
+### Install Sunspot
+
+```bash
+git clone https://github.com/reilabs/sunspot.git ~/sunspot
+cd ~/sunspot/go
+go build -o sunspot .
+sudo mv sunspot /usr/local/bin/
+
+# Sunspot needs to know where the verifier-bin crate lives
+export GNARK_VERIFIER_BIN="$HOME/sunspot/gnark-solana/crates/verifier-bin"
+echo 'export GNARK_VERIFIER_BIN="$HOME/sunspot/gnark-solana/crates/verifier-bin"' >> ~/.zshrc
+
+# Verify
+sunspot --help
+```
+
+### Clone the examples repo
+
+All code in this guide lives in the Solana Foundation's [noir-examples](https://github.com/solana-foundation/noir-examples) repo. Clone it and follow along.
+
+```bash
+git clone https://github.com/solana-foundation/noir-examples.git
+cd noir-examples
+just install-all
+```
+
+## Tutorial 1: the `one` circuit — prove `x != y`
+
+The simplest possible circuit: given a secret `x` and a public `y`, prove that `x != y`. The circuit leaks nothing about `x` beyond the fact that it is not equal to `y`.
+
+### The circuit
+
+`circuits/one/src/main.nr`:
+
+```rust
+fn main(x: u64, y: pub u64) {
+    assert(x != y);
+}
+
+#[test]
+fn test_main() {
+    main(1, 2);
+}
+```
+
+Two things to notice:
+
+- `x: u64` — a private input. Its value is part of the witness but never revealed.
+- `y: pub u64` — a public input. Its value is passed to the verifier alongside the proof and is checked against what the circuit committed to.
+
+The `assert` becomes a constraint in the arithmetic circuit. When you generate a proof, that constraint must be satisfied by the witness, or proof generation fails.
+
+### The input file
+
+`circuits/one/Prover.toml`:
+
+```toml
+x = "42"
+y = "100"
+```
+
+Nargo reads `Prover.toml` to populate the witness when you run `nargo execute`.
+
+### Compile, execute, prove
+
+From `circuits/one/`:
+
+```bash
+# 1. Compile Noir → ACIR bytecode
+nargo compile
+# Produces target/one.json (the ACIR)
+
+# 2. Execute the circuit with the inputs from Prover.toml to produce a witness
+nargo execute
+# Produces target/one.gz (the witness)
+
+# 3. Translate ACIR to Gnark's constraint system
+sunspot compile target/one.json
+# Produces target/one.ccs
+
+# 4. Run the Groth16 trusted setup
+sunspot setup target/one.ccs
+# Produces target/one.pk (proving key) and target/one.vk (verifying key)
+
+# 5. Generate the Groth16 proof
+sunspot prove target/one.json target/one.gz target/one.ccs target/one.pk
+# Produces target/one.proof and target/one.pw (public witness)
+```
+
+The outputs you care about after this pipeline are three files:
+
+- `target/one.proof` — 388 bytes for a simple circuit, the Groth16 proof itself.
+- `target/one.pw` — the public witness (public inputs, serialized).
+- `target/one.vk` — the verifying key, which gets compiled into the on-chain verifier program.
+
+<Tip>
+Proof size in Groth16 is constant — it does not grow with circuit complexity. The same ~388 bytes proves a trivial assertion or a signature-verification circuit with thousands of constraints. This is the property that makes Groth16 practical on Solana despite the compute-unit budget.
+</Tip>
+
+### Build and deploy the verifier
+
+```bash
+# Build a Solana program with the verifying key baked in
+sunspot deploy target/one.vk
+# Output file names derive from the verifying-key basename:
+# target/one.so and target/one-keypair.json
+
+# Deploy to devnet
+solana program deploy target/one.so \
+  --program-id target/one-keypair.json \
+  --url devnet
+```
+
+The resulting program has one job: given instruction data of the form `proof || public_witness`, validate the Groth16 proof against the baked-in verifying key. It returns success or an error — no accounts are written, no state is modified.
+
+### Verify on-chain from a TypeScript client
+
+The reference client in `circuits/one/client/` uses `@solana/kit`. The core of it is straightforward:
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  createTransactionMessage,
+  appendTransactionMessageInstructions,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  signTransactionMessageWithSigners,
+  sendAndConfirmTransactionFactory,
+  type Address,
+} from "@solana/kit";
+import { getSetComputeUnitLimitInstruction } from "@solana-program/compute-budget";
+import fs from "fs";
+
+// Run from circuits/one/client/ — artifacts live one directory up.
+const proof = fs.readFileSync("../target/one.proof");
+const publicWitness = fs.readFileSync("../target/one.pw");
+const instructionData = Buffer.concat([proof, publicWitness]);
+
+const rpc = createSolanaRpc("YOUR_CHAINSTACK_RPC_ENDPOINT");
+const rpcSubscriptions = createSolanaRpcSubscriptions("YOUR_CHAINSTACK_WSS_ENDPOINT");
+
+const verifyInstruction = {
+  programAddress: VERIFIER_PROGRAM_ID as Address,
+  accounts: [],
+  data: new Uint8Array(instructionData),
+};
+
+// Sunspot-generated verifiers consume 170K–500K CU depending on circuit
+// complexity. The default per-instruction budget is 200K; set an explicit
+// limit to cover the verifier plus caller overhead.
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+const tx = appendTransactionMessageInstructions(
+  [
+    getSetComputeUnitLimitInstruction({ units: 500_000 }),
+    verifyInstruction,
+  ],
+  setTransactionMessageLifetimeUsingBlockhash(
+    latestBlockhash,
+    setTransactionMessageFeePayerSigner(wallet, createTransactionMessage({ version: 0 })),
+  ),
+);
+
+const signed = await signTransactionMessageWithSigners(tx);
+const sendAndConfirm = sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions });
+await sendAndConfirm(signed, { commitment: "confirmed" });
+```
+
+The entire on-chain interaction is a single instruction with an empty accounts list and a data blob that is just `proof || witness`. The verifier program handles deserialization and pairing check internally.
+
+Run the reference client:
+
+```bash
+just verify-one
+```
+
+You should see the transaction succeed. Try changing `x` and `y` in `Prover.toml` to the same value and re-run `nargo execute` — witness generation fails immediately because the `assert(x != y)` constraint is violated, so no `.gz` witness file is produced and `sunspot prove` cannot even run.
+
+## Tutorial 2: sparse-Merkle-tree exclusion proof
+
+The `one` circuit exercises the pipeline but doesn't do anything useful. The `smt_exclusion` circuit is the real-world pattern: prove that your public key is **not** in a blacklist, without revealing anything else.
+
+The pattern generalizes. Any time you have an allow-list or deny-list and you want users to prove their status without leaking which user they are, this is the shape of the solution.
+
+### How the exclusion proof works
+
+The set of "blacklisted" public keys is stored as a sparse Merkle tree of depth 254 (one bit per position in the BN254 scalar field). Each leaf position corresponds to a Poseidon hash of a public key. An empty leaf has value `0`; an occupied leaf has a non-zero value.
+
+The root of this tree is committed on-chain. To prove your public key is not blacklisted, you:
+
+1. Hash your public key with Poseidon to get the leaf position.
+2. Provide the sibling hashes along the Merkle path from that position to the root.
+3. Prove inside the circuit that the leaf value at that position is `0` and that the path reconstructs to the committed root.
+
+If your key is in the tree, the leaf value will be non-zero and the assertion fails — proof generation is impossible.
+
+### The Poseidon coordinate trap
+
+This is the part that will bite you if you are not careful.
+
+Noir's standard library ships a Poseidon implementation at `std::hash::poseidon`. Circomlib — the canonical circuit library in the ZK ecosystem — ships a different Poseidon with the same BN254 parameters but a different output convention. Specifically, the sponge permutation produces a 3-element state, and the two implementations disagree on which coordinate is the "hash output":
+
+- Noir's stdlib `poseidon` follows the Poseidon paper — output is `state[1]`.
+- Circomlib's `poseidon` — output is `state[0]`.
+
+The Solana `sol_poseidon` syscall is implemented by [light-poseidon](https://github.com/Lightprotocol/light-poseidon), which is circomlib-compatible. So `sol_poseidon` returns `state[0]`.
+
+**If you use Noir's stdlib Poseidon inside your circuit and then try to recompute the hash on-chain with `sol_poseidon`, the values will differ.** The proof verifies correctly (the circuit's internal hash checks out), but any on-chain logic that depends on matching the hash to something your program computes separately will fail.
+
+<Warning>
+Do **not** use `std::hash::poseidon` from Noir's stdlib when you need the hash to match `sol_poseidon`. Use the [noir-lang/poseidon](https://github.com/noir-lang/poseidon) external library instead. It is maintained by the Noir team and is explicitly circomlib-compatible, matching what the syscall produces.
+</Warning>
+
+In `Nargo.toml`:
+
+```toml
+[package]
+name = "smt_exclusion"
+type = "bin"
+authors = [""]
+
+[dependencies]
+poseidon = { tag = "v0.1.1", git = "https://github.com/noir-lang/poseidon" }
+```
+
+In the circuit:
+
+```rust
+use dep::poseidon::poseidon::bn254::hash_2 as poseidon_hash;
+
+fn poseidon_hash_2(left: Field, right: Field) -> Field {
+    poseidon_hash([left, right])
+}
+```
+
+The reference circuit includes a unit test that locks this invariant down:
+
+```rust
+#[test]
+fn test_poseidon_circom_compatible() {
+    let h12 = poseidon_hash_2(1, 2);
+    let expected: Field = 0x115cc0f5e7d690413df64c6b9662e9cf2a3617f2743245519e19607a4417189a;
+    assert(h12 == expected, "Poseidon hash does not match circomlibjs");
+}
+```
+
+The magic constant `0x115cc0f5...` is the circomlibjs hash of `[1, 2]`. If a future Noir or library update drifts the convention, this test catches it immediately. Every ZK circuit you write that needs on-chain hash matching should pin a value like this.
+
+### The circuit
+
+Abbreviated, the `smt_exclusion` circuit (`circuits/smt_exclusion/src/main.nr`):
+
+```rust
+use dep::poseidon::poseidon::bn254::hash_2 as poseidon_hash;
+
+global TREE_DEPTH: u32 = 254;
+global EMPTY_LEAF: Field = 0;
+
+fn poseidon_hash_2(left: Field, right: Field) -> Field {
+    poseidon_hash([left, right])
+}
+
+// Split a 32-byte pubkey into two 16-byte halves and hash them.
+// This is the "pubkey to leaf index" function, matched by `sol_poseidon`
+// on-chain.
+pub fn pubkey_to_index(pubkey: [u8; 32]) -> Field {
+    let low = bytes16_to_field(pubkey, 0);
+    let high = bytes16_to_field(pubkey, 16);
+    poseidon_hash_2(low, high)
+}
+
+fn compute_merkle_root<let N: u32>(
+    leaf: Field,
+    path_bits: [u1; N],
+    siblings: [Field; N],
+) -> Field {
+    let mut current = leaf;
+    for i in 0..N {
+        let (left, right) = if path_bits[i] == 0 {
+            (current, siblings[i])
+        } else {
+            (siblings[i], current)
+        };
+        current = poseidon_hash_2(left, right);
+    }
+    current
+}
+
+fn main(
+    smt_root: pub Field,      // Public: committed on-chain
+    pubkey_hash: pub Field,   // Public: bound to the signer on-chain
+    pubkey: [u8; 32],         // Private: the actual pubkey
+    siblings: [Field; TREE_DEPTH],  // Private: the Merkle path
+    leaf_value: Field,        // Private: must be 0 for exclusion
+) {
+    // 1. Prove pubkey hashes to the claimed public hash.
+    let computed_hash = pubkey_to_index(pubkey);
+    assert(computed_hash == pubkey_hash, "Pubkey hash mismatch");
+
+    // 2. Path through the tree is determined by the pubkey hash bits.
+    let path_bits: [u1; TREE_DEPTH] = computed_hash.to_le_bits();
+
+    // 3. Prove the leaf at this position is empty.
+    assert(leaf_value == EMPTY_LEAF, "Exclusion failed: leaf is not empty");
+
+    // 4. Prove the path reconstructs to the committed root.
+    let computed_root = compute_merkle_root(leaf_value, path_bits, siblings);
+    assert(computed_root == smt_root, "Root mismatch: invalid merkle proof");
+}
+```
+
+Two public inputs (`smt_root`, `pubkey_hash`) and three private inputs (`pubkey`, `siblings`, `leaf_value`). The proof attests that the prover knows a `pubkey` whose Poseidon hash matches the public `pubkey_hash`, and that this key's position in the tree rooted at the public `smt_root` holds an empty leaf.
+
+Run the tests and generate a proof:
+
+```bash
+cd circuits/smt_exclusion
+nargo test
+just setup-smt
+```
+
+### The on-chain verifier — same as before
+
+Running `sunspot deploy target/smt_exclusion.vk` produces a Solana program that does one thing: verify a Groth16 proof against the baked-in verifying key. Deploy it the same way as before.
+
+This is what you would call directly from a client if the only thing your application needs is "prove the user is not blacklisted". But in most real systems the ZK check is one gate among several — for example, the user is not blacklisted **and** they are transferring no more than `N` lamports. That is where CPI comes in.
+
+### A calling program that does CPI to the verifier
+
+The richer pattern in `circuits/smt_exclusion/on_chain_program/` is a regular Solana program that:
+
+1. Holds an admin-settable SMT root in a PDA state account.
+2. Accepts a `TRANSFER_SOL` instruction with instruction data `[amount || proof || public_witness]`.
+3. Verifies the public witness matches the stored SMT root and the signer's Poseidon hash.
+4. Does a CPI to the ZK verifier program.
+5. If verification succeeds, transfers the lamports.
+
+The relevant slice of the program (`on_chain_program/src/lib.rs`):
+
+```rust
+use solana_poseidon::{hashv, Endianness, Parameters};
+use solana_program::{
+    instruction::Instruction,
+    program::invoke,
+    pubkey::Pubkey,
+};
+
+pub const ZK_VERIFIER_PROGRAM_ID: Pubkey =
+    solana_program::pubkey!("548u4SFWZMaRWZQqdyAgm66z7VRYtNHHF2sr7JTBXbwN");
+
+fn process_transfer_sol(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
+    // Instruction data layout: 8 (amount) + 388 (proof) + 76 (witness)
+    if data.len() != 8 + 388 + 76 {
+        return Err(ExclusionError::InvalidDataLength.into());
+    }
+
+    let amount = u64::from_le_bytes(data[0..8].try_into().unwrap());
+    let proof_data = &data[8..8 + 388];
+    let witness_data = &data[8 + 388..];
+
+    // 1. Check the witness commits to the correct SMT root.
+    let witness_smt_root = &witness_data[12..44];
+    if witness_smt_root != stored_smt_root {
+        return Err(ExclusionError::SmtRootMismatch.into());
+    }
+
+    // 2. Recompute the signer's pubkey_hash with sol_poseidon and check
+    //    the witness commits to the same value. SIMD-0359 requires every
+    //    input slice to be exactly 32 bytes; zero-pad the 16-byte halves.
+    let pubkey_bytes = sender.key.as_ref();
+    let mut low_padded = [0u8; 32];
+    low_padded[..16].copy_from_slice(&pubkey_bytes[0..16]);
+    let mut high_padded = [0u8; 32];
+    high_padded[..16].copy_from_slice(&pubkey_bytes[16..32]);
+
+    let computed_hash = hashv(
+        Parameters::Bn254X5,
+        Endianness::LittleEndian,
+        &[&low_padded, &high_padded],
+    )
+    .map_err(|_| ExclusionError::PoseidonHashFailed)?;
+
+    // sol_poseidon with LittleEndian outputs little-endian bytes;
+    // gnark emits big-endian in the witness. Reverse before comparing.
+    let computed_bytes = computed_hash.to_bytes();
+    let mut computed_be = [0u8; 32];
+    for i in 0..32 {
+        computed_be[i] = computed_bytes[31 - i];
+    }
+
+    let witness_pubkey_hash = &witness_data[44..76];
+    if witness_pubkey_hash != computed_be {
+        return Err(ExclusionError::PubkeyHashMismatch.into());
+    }
+
+    // 3. CPI to the ZK verifier program. Accounts list is empty —
+    //    the verifier has no state, only the baked-in verifying key.
+    let mut verifier_data = Vec::with_capacity(388 + 76);
+    verifier_data.extend_from_slice(proof_data);
+    verifier_data.extend_from_slice(witness_data);
+
+    let verify_ix = Instruction {
+        program_id: ZK_VERIFIER_PROGRAM_ID,
+        accounts: vec![],
+        data: verifier_data,
+    };
+    invoke(&verify_ix, &[])?;
+
+    // 4. Verification succeeded — run the rest of the logic.
+    invoke(
+        &system_instruction::transfer(sender.key, recipient.key, amount),
+        &[sender.clone(), recipient.clone(), system_program.clone()],
+    )?;
+
+    Ok(())
+}
+```
+
+This is the actual structure of a production ZK-gated operation. Four things to lock in from this code:
+
+- **The verifier is stateless** — the CPI passes an empty accounts list. The verifier program reads only its baked-in verifying key and the instruction data.
+- **Bind the proof to on-chain state.** Your program must recompute the expected public inputs (SMT root, signer hash, whatever else is public) and check they match what the witness claims. Otherwise a user could submit a valid proof for a different tree or different signer.
+- **Endianness conversion is required.** The `sol_poseidon` syscall with `Endianness::LittleEndian` produces little-endian bytes; Gnark emits big-endian in the public witness. Reverse the computed bytes before comparing, or you will get spurious mismatches.
+- **Every `sol_poseidon` input must be exactly 32 bytes.** [SIMD-0359](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0359-poseidon-enforce-input-length.md) is active on devnet (since epoch 1014) and testnet (since epoch 897). Before activation, the runtime silently zero-extended short inputs; after activation, anything other than exactly 32 bytes returns `PoseidonSyscallError::Unexpected`. The code above zero-pads 16-byte pubkey halves to 32 bytes; match the padding in both the client-side Poseidon computation and anywhere else you call the syscall.
+- **Compute-unit budget.** Groth16 verification alone fits in ~200K CU, but the calling program also does hashing, state reads, and the transfer. Measure with `compute-budget` and set the limit explicitly from the client.
+
+### The client flow
+
+The TypeScript client (`circuits/smt_exclusion/client/`) builds the witness by (1) hashing the sender's pubkey with a circomlib-compatible Poseidon in JavaScript, (2) building the Merkle path against the current SMT state, (3) writing `Prover.toml`, (4) shelling out to `nargo execute` and `sunspot prove`, and (5) submitting the transaction.
+
+```typescript
+import { generateProof } from "./proof.helper";
+
+const proofResult = generateProof(circuitConfig, {
+  smt_root: currentRoot,
+  pubkey_hash: pubkeyHash,
+  pubkey: pubkeyBytes,
+  siblings: merklePath,
+  leaf_value: "0",  // proving non-inclusion
+});
+
+// Instruction layout matches process_instruction's dispatch:
+//   data[0]      = opcode (2 = TRANSFER_SOL)
+//   data[1..9]   = amount (u64 LE)
+//   data[9..397] = Groth16 proof (388 bytes)
+//   data[397..]  = public witness (76 bytes)
+const TRANSFER_SOL_OPCODE = 2;
+const transferData = Buffer.concat([
+  Buffer.from([TRANSFER_SOL_OPCODE]),
+  toLeBytes(amountLamports, 8),
+  proofResult.proof,
+  proofResult.publicWitness,
+]);
+```
+
+Run the full end-to-end flow:
+
+```bash
+just test-transfer-smt
+```
+
+The script initializes the state account, sets an SMT root, generates a proof that the signer is not in the tree, submits the transfer-with-proof instruction, and confirms the recipient received the SOL.
+
+## Using your Chainstack endpoint
+
+Point the reference client at your own Chainstack node rather than the default public RPC. In any of the client scripts, replace the RPC URL:
+
+```typescript
+const RPC_URL = process.env.RPC_URL || "YOUR_CHAINSTACK_RPC_ENDPOINT";
+const WS_URL = process.env.WS_URL || "YOUR_CHAINSTACK_WSS_ENDPOINT";
+```
+
+Then:
+
+```bash
+export RPC_URL="https://solana-devnet.core.chainstack.com/YOUR_KEY"
+export WS_URL="wss://solana-devnet.core.chainstack.com/YOUR_KEY"
+just verify-one
+just test-transfer-smt
+```
+
+For deploys:
+
+```bash
+solana config set --url "$RPC_URL"
+solana program deploy target/verifier.so
+```
+
+See [Solana: Development](/docs/solana-development) for endpoint setup.
+
+## Production checklist
+
+Before shipping a ZK-gated Solana program to mainnet, work through this list.
+
+<Steps>
+  <Step title="Run a proper trusted-setup ceremony">
+    `sunspot setup` is a 1-of-1 ceremony with no toxic-waste mitigation. For any real deployment, replace the verifying key with one produced by a multi-party computation. Gnark supports phase2 contributions; pull `.pk`/`.vk` from a ceremony where at least one honest participant destroyed their randomness. Re-run `sunspot deploy` with the post-ceremony `.vk`.
+  </Step>
+  <Step title="Lock the verifier program">
+    Once deployed, make the verifier program immutable (`solana program set-upgrade-authority --final`). An upgradeable verifier means whoever holds the upgrade authority can swap in a different verifying key and accept forged proofs.
+  </Step>
+  <Step title="Treat feature-gate activations as release blockers">
+    Solana's ZK-adjacent syscalls and programs have been disabled and re-enabled before — the ZK ElGamal Proof Program was disabled at epoch 805 after a Fiat-Shamir transcript bug, and SIMD-0359 silently changed the input-length contract for `sol_poseidon`. Subscribe to the [Agave feature gate tracker](https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule) and re-test your deployed programs on devnet before any feature gate activates on mainnet. A working deploy today can fail silently tomorrow if a feature gate tightens input validation.
+  </Step>
+  <Step title="Bind public inputs to on-chain state">
+    The proof only attests that the circuit's constraints are satisfied given the public inputs. Your calling program must verify those public inputs match real state — the stored SMT root, the signer's pubkey, the current epoch, etc. Without this, a valid proof for any tree or any signer is accepted.
+  </Step>
+  <Step title="Set and measure compute-unit budgets explicitly">
+    The verifier alone consumes ~200K CU. Any calling program adds more. Never rely on the default; set `SetComputeUnitLimit` from the client and confirm the transaction actually succeeds under that budget on mainnet, not just localnet.
+  </Step>
+  <Step title="Pin dependency versions in both Rust and Noir">
+    Noir, Sunspot, and the Poseidon library all iterate. A minor-version update can change constraint counts, round constants, or byte layouts. Commit `Nargo.toml`, `Cargo.toml`, and `Cargo.lock`. Re-run the setup ceremony if any of these change.
+  </Step>
+  <Step title="Unit-test the hash invariants">
+    Include a `test_poseidon_circom_compatible`-style test that hashes a known input and asserts equality with a pre-computed expected value. This catches silent drift in the Poseidon library.
+  </Step>
+  <Step title="Audit the circuit">
+    Groth16 verifies that the circuit's constraints are satisfied — it does not verify that your circuit says what you meant it to say. A bug in your circuit logic is silent and total. Circuit audits are a distinct specialty; firms like Reilabs, ZK Security, and zkSecurity do them.
+  </Step>
+</Steps>
+
+## Common pitfalls
+
+### Proof generation fails with "constraint not satisfied"
+
+The witness does not satisfy the circuit's constraints. Most often this means your off-chain computation produced inputs that disagree with the circuit's `assert`s — for example, the Merkle path you built does not reconstruct to the root you claimed, or the leaf value at the claimed position is not what you said. Turn on Sunspot's verbose output and the specific failing constraint will be reported.
+
+### Proof verifies in `sunspot verify` but fails on-chain
+
+Two likely causes:
+
+- **Endianness.** Gnark emits public witnesses in big-endian; the `sol_poseidon` syscall with `Endianness::LittleEndian` returns little-endian bytes. If your calling program compares them without reversing one side, they will never match.
+- **Public-input binding mismatch.** The circuit hashed one set of bytes; your program hashed a different set. Check that you split the pubkey the same way (16 low + 16 high bytes) on both sides and that the byte order of each half matches.
+
+### Hash from the circuit does not match `sol_poseidon` output
+
+You used Noir's stdlib `std::hash::poseidon`. Switch to the [noir-lang/poseidon](https://github.com/noir-lang/poseidon) library (`dep::poseidon::poseidon::bn254::hash_N`). See the coordinate-trap section above.
+
+### Verifier CU usage exceeds 200K
+
+The baseline is under 200K for a simple verifier, but large public-witness sizes or additional hashing in the caller push it over. Set the limit explicitly from the client with `SetComputeUnitLimit`. If you need to stay under 200K strictly, keep the number of public inputs small and avoid per-byte hashing in the caller.
+
+### Program fails with stack overflow during verification
+
+Groth16 verifying keys and proof structs, if instantiated on the stack inside a Solana program, can exceed the 4 KB SBF stack limit. The Sunspot-generated verifier avoids this internally, but if you are writing a calling program that also does crypto work (hashing, building witness buffers), keep large byte arrays on the heap via `Vec` or in account data — never stack-allocate a `[u8; 4096]` or larger. Anchor 0.31 and later emit stack-size warnings for this pattern even when the runtime usage is fine.
+
+### Transaction exceeds the 1232-byte size limit
+
+A Sunspot-generated Groth16 proof is 324–388 bytes depending on the circuit; the underlying compressed BN254 proof is 256 bytes, but Sunspot's wire format adds framing. Public witnesses are small (44 bytes for `one`, 76 bytes for `smt_exclusion`), but grow with the number of public inputs. If your calling program passes proof + witness as CPI data on top of an already-large instruction, you will hit Solana's ~1232-byte transaction limit. Solutions: use address lookup tables to shave signer/account overhead, split large public-witness bytes into a data account written in a separate transaction, or reduce the circuit's public inputs by hashing them into a single commitment.
+
+### `convert_endianness` is not available on-chain
+
+`solana_program::alt_bn128::compression::convert_endianness` is gated `#[cfg(not(target_os = "solana"))]` — it exists only off-chain. If you are converting Gnark big-endian output to alt_bn128 little-endian expectations, do the conversion in the client before submitting. If you need equivalent logic on-chain, copy the byte-reversal into your program (it is a simple per-component reverse, not a syscall).
+
+### `sunspot deploy` produces an empty or broken `.so`
+
+`GNARK_VERIFIER_BIN` is not set, or points at the wrong directory. It must point to the `gnark-solana/crates/verifier-bin` directory inside your Sunspot clone.
+
+### Calling program's `sol_poseidon` returns `Unexpected`
+
+[SIMD-0359](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0359-poseidon-enforce-input-length.md) (active on devnet epoch 1014+, testnet epoch 897+, at time of writing pending on mainnet-beta) requires every input slice to the `sol_poseidon` syscall to be **exactly 32 bytes** — the byte length of the BN254 scalar field modulus. Before activation, shorter inputs were silently zero-extended. After activation, they return `PoseidonSyscallError::Unexpected`.
+
+If your program hashes a pubkey by splitting it into two 16-byte halves, zero-pad each half to 32 bytes before passing them to `hashv`:
+
+```rust
+let mut low_padded = [0u8; 32];
+low_padded[..16].copy_from_slice(&pubkey_bytes[0..16]);
+let mut high_padded = [0u8; 32];
+high_padded[..16].copy_from_slice(&pubkey_bytes[16..32]);
+let computed_hash = hashv(
+    Parameters::Bn254X5,
+    Endianness::LittleEndian,
+    &[&low_padded, &high_padded],
+)?;
+```
+
+The zero-padding matches the runtime's pre-SIMD-0359 behavior, so proofs generated against circuits that hash the same 16-byte halves (treated as Field elements, which are 32-byte) continue to verify. Apply the same padding wherever your client-side code computes Poseidon hashes that need to match the on-chain syscall.
+
+### Noir stdlib version mismatch
+
+`nargo` version must match what Sunspot expects. Sunspot's README pins beta.18 as of April 2026. If you update Noir without updating Sunspot, ACIR serialization may change and `sunspot compile` will fail with an opaque parse error. Use `noirup -v 1.0.0-beta.18` to stay pinned.
+
+## Where this stack is heading
+
+Several in-flight Solana features will change the ZK landscape.
+
+- **[SIMD-0302](https://github.com/solana-foundation/solana-improvement-documents/pull/302)** — standalone BN254 G2 arithmetic syscalls. Currently G2 is only accessible via the G1+G2 pairing operation. Pending devnet activation in Agave v4.0.0-beta.
+- **[SIMD-0388](https://github.com/solana-foundation/solana-improvement-documents/pull/388)** — BLS12-381 syscalls. Adds a second pairing-friendly curve alongside BN254, enabling proving systems that target BLS12-381. Does not directly unlock UltraHonk on Solana (UltraHonk uses BN254 but needs KZG polynomial-commitment operations that remain absent), but broadens the curve surface for future ZK work. Pending mainnet.
+- **[ZK Compression V2](https://www.zkcompression.com/)** — Light Protocol's production ZK infrastructure, shipping on mainnet as of March 2026. Uses the same Groth16-via-`alt_bn128` path described in this guide, at production scale.
+
+Until KZG support lands, the Noir → Sunspot → Groth16 → `alt_bn128` path is the only production route from Noir to Solana.
+
+### When to reach for a zkVM instead
+
+Noir is a constraint-writing DSL: you describe a small arithmetic circuit and prove statements about it. This is the right tool for compact, repeat-use circuits — Merkle membership, signature verification, range proofs.
+
+If your proof target is "run this arbitrary Rust (or C, or Python-like) program and prove it executed correctly", a zkVM is the better fit:
+
+- **[SP1](https://github.com/succinctlabs/sp1-solana)** — write Rust, run in a RISC-V zkVM, generate a STARK that is recursively wrapped in Groth16 for on-chain verification. Good for general-purpose off-chain computation.
+- **[Bonsol](https://github.com/Bonsol-Collective/bonsol)** — RISC Zero on Solana; similar shape to SP1 but a different proving stack.
+
+The rule of thumb: if you would be comfortable writing the computation as a handful of explicit constraints, use Noir + Sunspot. If the computation is a program that happens to need a proof, use a zkVM.
+
+## Further reading
+
+- [solana-foundation/noir-examples](https://github.com/solana-foundation/noir-examples) — the canonical reference repo; three circuits with pre-deployed devnet verifiers.
+- [reilabs/sunspot](https://github.com/reilabs/sunspot) — Noir → Gnark-Groth16 → Solana toolchain.
+- [Lightprotocol/groth16-solana](https://github.com/Lightprotocol/groth16-solana) — the lower-level crate for Groth16 verification on Solana. Use this directly if you are not going through Sunspot (for example, generating proofs with snarkjs).
+- [Lightprotocol/light-poseidon](https://github.com/Lightprotocol/light-poseidon) — the circomlib-compatible Poseidon implementation behind `sol_poseidon`.
+- [Noir documentation](https://noir-lang.org/docs/) — circuit syntax and stdlib reference.
+- [Groth16 paper](https://eprint.iacr.org/2016/260) — the proving system itself.
+- [Solana ZK primitives](https://docs.anza.xyz/runtime/zk-docs/zk-elgamal-proof) — Agave runtime's ZK documentation (covers ZK ElGamal specifically; `alt_bn128` and `sol_poseidon` are documented in the general syscall reference).
+
+## Where to get help
+
+Custom Groth16 verification on Solana is an emerging area — there is no active #zk channel to ping, and Noir-specific Solana discussion is near-zero on Discord, Telegram, and Reddit as of April 2026. When you get stuck, the productive channels are:
+
+- [groth16-solana GitHub issues](https://github.com/Lightprotocol/groth16-solana/issues) — direct line to Light Protocol maintainers for low-level verification questions.
+- [reilabs/sunspot GitHub issues](https://github.com/reilabs/sunspot/issues) — for Noir → Gnark → Solana pipeline bugs.
+- [Noir Discord](https://discord.gg/aztec) — circuit-writing and Noir-language questions (Aztec-run, not Solana-specific).
+- [Solana Stack Exchange](https://solana.stackexchange.com/) — has a small but growing corpus of Groth16 / alt_bn128 / stack-overflow-during-verify questions. Searching for `alt_bn128` turns up the most useful prior answers.
+- [Light Protocol Discord](https://discord.gg/J3zB8ZgnJv) — ZK Compression and the broader Groth16-on-Solana community.

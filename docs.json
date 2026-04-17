@@ -1136,6 +1136,7 @@
                   "docs/solana-program-derived-addresses-and-cross-program-invocations",
                   "docs/solana-anchor-development",
                   "docs/solana-escrow-pattern",
+                  "docs/solana-zk-proofs",
                   "docs/solana-token-extensions",
                   "docs/solana-tutorial-creating-a-token-and-vesting-the-token-in-your-program",
                   "docs/transferring-spl-tokens-on-solana-typescript",
