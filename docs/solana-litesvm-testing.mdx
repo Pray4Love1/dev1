@@ -630,3 +630,13 @@ Reach for a different tool if any of these apply:
 - [anchor-litesvm on crates.io](https://crates.io/crates/anchor-litesvm).
 - [Mollusk](https://github.com/anza-xyz/mollusk) — Anza's single-instruction harness.
 - [Surfpool](https://github.com/txtx/surfpool) — integration-tier SVM with mainnet-fork support.
+
+## Reference repos
+
+These are the source repositories we worked against while writing this guide. They stay closer to reality than docs — check them first when something here looks off.
+
+- [LiteSVM/litesvm](https://github.com/LiteSVM/litesvm) — test-harness source; API surface, error paths, and feature-gate behavior verified against this
+- [brimigs/anchor-litesvm](https://github.com/brimigs/anchor-litesvm) — Anchor ↔ LiteSVM bridge used in the Rust examples
+- [anza-xyz/mollusk](https://github.com/anza-xyz/mollusk) — alternative lightweight runtime evaluated and cited for contrast
+- [kevinheavey/solders](https://github.com/kevinheavey/solders) — Python bindings used by the LiteSVM Python harness
+- [kevinheavey/solana-bankrun](https://github.com/kevinheavey/solana-bankrun) — predecessor test runtime; useful for understanding migration paths

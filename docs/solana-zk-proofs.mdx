@@ -731,3 +731,13 @@ Custom Groth16 verification on Solana is an emerging area — there is no active
 - [Noir Discord](https://discord.gg/aztec) — circuit-writing and Noir-language questions (Aztec-run, not Solana-specific).
 - [Solana Stack Exchange](https://solana.stackexchange.com/) — has a small but growing corpus of Groth16 / alt_bn128 / stack-overflow-during-verify questions. Searching for `alt_bn128` turns up the most useful prior answers.
 - [Light Protocol Discord](https://discord.gg/J3zB8ZgnJv) — ZK Compression and the broader Groth16-on-Solana community.
+
+## Reference repos
+
+These are the source repositories we worked against while writing this guide. They stay closer to reality than docs — check them first when something here looks off.
+
+- [solana-foundation/noir-examples](https://github.com/solana-foundation/noir-examples) — Solana Foundation's Noir + Solana examples; the reference we built the guide against
+- [Lightprotocol/groth16-solana](https://github.com/Lightprotocol/groth16-solana) — on-chain Groth16 verifier; verification-key serialization and proof formats verified here
+- [Lightprotocol/light-poseidon](https://github.com/Lightprotocol/light-poseidon) — Solana Poseidon syscall wrapper and hasher
+- [reilabs/sunspot](https://github.com/reilabs/sunspot) — Noir → Solana tooling used in the build and deploy steps
+- [noir-lang/poseidon](https://github.com/noir-lang/poseidon) — Poseidon circuit library for Noir; referenced for hash-function parameter compatibility
