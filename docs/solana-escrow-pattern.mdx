@@ -1,0 +1,966 @@
+---
+title: "Solana: The escrow pattern"
+description: Build a trustless token-swap escrow on Solana with Anchor 1.0.0 — PDA-owned vaults, the token interface, CPI from a PDA signer, and atomic maker/taker exchange with refund.
+---
+
+**TLDR:**
+* Escrow is the canonical Solana program pattern — every DEX, order book, and marketplace reuses the same primitives.
+* A maker deposits token A into a PDA-owned vault and records how much token B they want. A taker completes the swap atomically, or the maker refunds at any time.
+* The program demonstrates PDA-signed CPIs, the Token interface (works with both legacy SPL Token and Token-2022), atomic two-legged transfers, and returning rent when accounts close.
+* Uses Anchor 1.0.0 (April 2026). All three canonical reference implementations — `solana-foundation/anchor/tests/escrow`, `solana-foundation/solana-bootcamp-2026/04-escrow`, and `solana-developers/program-examples/tokens/escrow/anchor` — converge on the patterns in this guide.
+
+## Why learn the escrow pattern
+
+An escrow is a program that holds assets during a trade and releases them only when both sides have performed. Two parties swap tokens without trusting each other or a third party:
+
+- The **maker** opens an offer: "I will give X of token A for Y of token B".
+- The **taker** fulfills the offer: they send Y of token B to the maker, and the program releases X of token A to them — all in one atomic transaction.
+- If no taker appears, the maker **refunds** and reclaims their tokens.
+
+The same shape shows up everywhere:
+
+- AMMs (Raydium, Orca) — a pool is an escrow with two token vaults and a pricing curve.
+- Order books (Phoenix, OpenBook) — each resting order is a small escrow.
+- NFT marketplaces (Magic Eden, Tensor) — a listing is an escrow of one NFT for N of a fungible token.
+- Limit orders (Jupiter, Kamino) — a trigger-based escrow that fills when price crosses a threshold.
+
+Learn the escrow and you have learned the mechanical core of Solana DeFi. Every pattern in this guide — PDA vaults, PDA-signed CPIs, atomic multi-leg transfers, account closure — reappears in every production program.
+
+<Note>
+This guide assumes you have read [Solana: Anchor development](/docs/solana-anchor-development) and [Solana: Program derived addresses and cross-program invocations](/docs/solana-program-derived-addresses-and-cross-program-invocations). Concepts like `#[derive(Accounts)]`, PDA derivation, and basic CPIs are not re-explained here.
+</Note>
+
+## Prerequisites
+
+Install the tooling if you have not done so already. This guide targets Anchor 1.0.0.
+
+| Tool | Version | Install |
+|------|---------|---------|
+| Rust | 1.89.0+ | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
+| Solana CLI | 3.1.10+ | `sh -c "\$(curl -sSfL https://release.anza.xyz/v3.1.10/install)"` |
+| Anchor CLI | 1.0.0 | `cargo install avm --git https://github.com/solana-foundation/anchor --locked && avm install 1.0.0 && avm use 1.0.0` |
+| Node.js | 22+ | [nodejs.org](https://nodejs.org/) |
+| Yarn | 1.22+ | `npm install -g yarn` |
+
+Verify your setup:
+
+```shell
+anchor --version    # anchor-cli 1.0.0
+solana --version    # solana-cli 3.1.x
+rustc --version     # rustc 1.89.0+
+```
+
+## The design
+
+Four accounts carry state across the escrow lifecycle:
+
+- **Escrow (PDA)** — holds swap metadata: who made it, which mints, how much token B they want. Derived from `["escrow", maker, seed]` so a single maker can run many concurrent escrows with different `seed` values.
+- **Vault (ATA owned by the Escrow PDA)** — holds the maker's deposited token A. The vault is an associated token account whose authority is the Escrow PDA, so only the program (signing for the PDA) can move tokens out.
+- **Maker and taker ATAs** — standard associated token accounts for mint A and mint B held by the two parties.
+
+The PDA that owns the vault is the same PDA that stores the metadata. This is deliberate: one PDA, one vault, one record — and the PDA signer seeds are identical for every CPI the program makes.
+
+Three instructions move the system through its states:
+
+```
+                 ┌───────────┐
+                 │  (empty)  │
+                 └─────┬─────┘
+                       │ maker calls make(seed, receive, amount)
+                       ▼
+┌─────────────────────────────────────────────┐
+│ Escrow open. Vault holds `amount` of mint_a │
+└────┬────────────────────────────────────┬───┘
+     │                                    │
+     │ taker calls take()                 │ maker calls refund()
+     ▼                                    ▼
+┌─────────────────┐                  ┌──────────────────┐
+│ Maker got mint_b│                  │ Maker got mint_a │
+│ Taker got mint_a│                  │ back from vault  │
+│ Escrow closed   │                  │ Escrow closed    │
+└─────────────────┘                  └──────────────────┘
+```
+
+Both `take` and `refund` close the vault and the Escrow account, returning the rent lamports to the maker.
+
+## Project setup
+
+Scaffold a new Anchor workspace:
+
+```shell
+anchor init anchor-escrow
+cd anchor-escrow
+```
+
+The default `--template modular` layout gives you separate files for instructions, state, and errors — the structure this guide uses. Replace the placeholder content with the files below.
+
+### Cargo.toml
+
+Open `programs/anchor-escrow/Cargo.toml` and set the dependencies:
+
+```toml
+[dependencies]
+anchor-lang = { version = "1.0.0", features = ["init-if-needed"] }
+anchor-spl = "1.0.0"
+```
+
+<Warning>
+`init-if-needed` is gated behind a feature flag because it can mask bugs (a typo in constraints will silently initialize a fresh account instead of erroring). We use it deliberately in `take` and `refund` so the caller does not have to pre-create recipient token accounts. Always pair `init_if_needed` with explicit mint/authority constraints so Anchor validates the account even when it already exists.
+</Warning>
+
+### Program ID
+
+Generate a program keypair and write its public key into `declare_id!` and `Anchor.toml`:
+
+```shell
+anchor keys sync
+```
+
+## State
+
+Create `programs/anchor-escrow/src/state.rs`:
+
+```rust
+use anchor_lang::prelude::*;
+
+#[account]
+#[derive(InitSpace)]
+pub struct Escrow {
+    pub seed: u64,
+    pub maker: Pubkey,
+    pub mint_a: Pubkey,
+    pub mint_b: Pubkey,
+    pub receive: u64,
+    pub bump: u8,
+}
+```
+
+The six fields record everything the program needs at `take` or `refund` time:
+
+- `seed` — a maker-chosen `u64` used as the PDA seed. Lets a single maker run many concurrent escrows with different seeds.
+- `maker` — the wallet that created the offer. Used for `has_one` checks and to return rent.
+- `mint_a`, `mint_b` — the two mints involved. Stored so `take` and `refund` can validate the mint accounts the caller passes in.
+- `receive` — how much of mint B the taker must send to complete the swap.
+- `bump` — the PDA bump seed, cached at `make` time so we do not re-derive on every CPI.
+
+`#[derive(InitSpace)]` generates `Escrow::INIT_SPACE` — the byte size of all fields. The final `space` for the account is `8 + Escrow::INIT_SPACE` (the 8 leading bytes are the Anchor discriminator).
+
+## Errors
+
+Create `programs/anchor-escrow/src/error.rs`:
+
+```rust
+use anchor_lang::prelude::*;
+
+#[error_code]
+pub enum EscrowError {
+    #[msg("Amount must be greater than zero")]
+    InvalidAmount,
+    #[msg("Escrow maker does not match")]
+    InvalidMaker,
+    #[msg("Mint A does not match the escrow")]
+    InvalidMintA,
+    #[msg("Mint B does not match the escrow")]
+    InvalidMintB,
+}
+```
+
+Anchor 1.0.0 restricts a program to a single `#[error_code]` block. Keep all variants here.
+
+## The `make` instruction
+
+The maker deposits `amount` of mint A into a new vault and records how much of mint B they want in return.
+
+Create `programs/anchor-escrow/src/instructions/make.rs`:
+
+```rust
+use anchor_lang::prelude::*;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked},
+};
+
+use crate::error::EscrowError;
+use crate::state::Escrow;
+
+#[derive(Accounts)]
+#[instruction(seed: u64)]
+pub struct Make<'info> {
+    #[account(mut)]
+    pub maker: Signer<'info>,
+
+    #[account(
+        init,
+        payer = maker,
+        space = 8 + Escrow::INIT_SPACE,
+        seeds = [b"escrow", maker.key().as_ref(), seed.to_le_bytes().as_ref()],
+        bump,
+    )]
+    pub escrow: Account<'info, Escrow>,
+
+    #[account(mint::token_program = token_program)]
+    pub mint_a: InterfaceAccount<'info, Mint>,
+
+    #[account(mint::token_program = token_program)]
+    pub mint_b: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        associated_token::mint = mint_a,
+        associated_token::authority = maker,
+        associated_token::token_program = token_program,
+    )]
+    pub maker_ata_a: InterfaceAccount<'info, TokenAccount>,
+
+    #[account(
+        init,
+        payer = maker,
+        associated_token::mint = mint_a,
+        associated_token::authority = escrow,
+        associated_token::token_program = token_program,
+    )]
+    pub vault: InterfaceAccount<'info, TokenAccount>,
+
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
+}
+
+impl<'info> Make<'info> {
+    fn populate_escrow(&mut self, seed: u64, receive: u64, bump: u8) -> Result<()> {
+        self.escrow.set_inner(Escrow {
+            seed,
+            maker: self.maker.key(),
+            mint_a: self.mint_a.key(),
+            mint_b: self.mint_b.key(),
+            receive,
+            bump,
+        });
+        Ok(())
+    }
+
+    fn deposit_tokens(&mut self, amount: u64) -> Result<()> {
+        transfer_checked(
+            CpiContext::new(
+                self.token_program.key(),
+                TransferChecked {
+                    from: self.maker_ata_a.to_account_info(),
+                    mint: self.mint_a.to_account_info(),
+                    to: self.vault.to_account_info(),
+                    authority: self.maker.to_account_info(),
+                },
+            ),
+            amount,
+            self.mint_a.decimals,
+        )
+    }
+}
+
+pub fn handler(ctx: Context<Make>, seed: u64, receive: u64, amount: u64) -> Result<()> {
+    require_gt!(receive, 0, EscrowError::InvalidAmount);
+    require_gt!(amount, 0, EscrowError::InvalidAmount);
+
+    ctx.accounts.populate_escrow(seed, receive, ctx.bumps.escrow)?;
+    ctx.accounts.deposit_tokens(amount)
+}
+```
+
+What each constraint buys you:
+
+- `#[instruction(seed: u64)]` — surfaces the `seed` argument so we can reference it in PDA seeds. Anchor validates at deserialization time that `[b"escrow", maker, seed]` derives to the `escrow` account the caller passed in.
+- `init` on `escrow` — allocates and zero-fills the account, paid for by the maker, sized to `8 + Escrow::INIT_SPACE`.
+- `init` on `vault` — creates the associated token account, paid for by the maker, with the Escrow PDA as authority. Anchor calls the Associated Token Program internally; no manual CPI needed.
+- `mint::token_program = token_program` — asserts the mint is owned by the Token program that the caller passed. Prevents mixing SPL Token and Token-2022 mints under a single program account.
+- `associated_token::token_program = token_program` — same invariant, applied to ATAs.
+
+The handler runs two side effects:
+
+- `populate_escrow` — writes the escrow state in one `set_inner` call. Using `set_inner` is cleaner than five individual field assignments and generates fewer compute units.
+- `deposit_tokens` — CPIs into the Token program with `transfer_checked`, which validates the mint decimals against the transfer amount. The authority is the maker (a real signer on the transaction), so no PDA signing is needed yet.
+
+<Tip>
+`transfer_checked` is strictly safer than the older `transfer` — it fails if the decimals on the mint account disagree with the value the caller claims. Always prefer `transfer_checked` for user-facing transfers.
+</Tip>
+
+### The token interface
+
+Notice the types: `Interface<'info, TokenInterface>`, `InterfaceAccount<'info, Mint>`, `InterfaceAccount<'info, TokenAccount>`. These come from `anchor_spl::token_interface` and work with **either** SPL Token or Token-2022 mints. The concrete `Program<'info, Token>` and `Account<'info, TokenAccount>` from `anchor_spl::token` only work with legacy SPL Token.
+
+For new programs, default to the interface types. The cost is zero — runtime dispatch is resolved by the `token_program` account the caller passes. The benefit is that your program correctly types Token-2022 accounts and accepts both legacy and Token-2022 mints. Type compatibility is not runtime compatibility, though: extensions that require extra CPI logic — transfer hooks (need `remaining_accounts` containing the hook program plus its validation accounts), confidential transfers (encrypted amounts), and several others — still need explicit handling. See the [Token-2022 extensions](#token-2022-extensions) section below for the full list and the hazards that apply to an escrow.
+
+## The `take` instruction
+
+The taker atomically:
+
+1. Sends `escrow.receive` of mint B from their ATA to the maker's ATA.
+2. Receives the entire vault balance of mint A.
+3. Triggers the program to close the vault and the Escrow account, with rent going to the maker.
+
+Create `programs/anchor-escrow/src/instructions/take.rs`:
+
+```rust
+use anchor_lang::prelude::*;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token_interface::{
+        close_account, transfer_checked, CloseAccount, Mint, TokenAccount, TokenInterface,
+        TransferChecked,
+    },
+};
+
+use crate::error::EscrowError;
+use crate::state::Escrow;
+
+#[derive(Accounts)]
+pub struct Take<'info> {
+    #[account(mut)]
+    pub taker: Signer<'info>,
+
+    /// The original maker. Receives mint B from the taker and the rent
+    /// reclaimed from the closed escrow + vault accounts.
+    #[account(mut)]
+    pub maker: SystemAccount<'info>,
+
+    #[account(
+        mut,
+        close = maker,
+        seeds = [b"escrow", maker.key().as_ref(), escrow.seed.to_le_bytes().as_ref()],
+        bump = escrow.bump,
+        has_one = maker @ EscrowError::InvalidMaker,
+        has_one = mint_a @ EscrowError::InvalidMintA,
+        has_one = mint_b @ EscrowError::InvalidMintB,
+    )]
+    pub escrow: Box<Account<'info, Escrow>>,
+
+    pub mint_a: Box<InterfaceAccount<'info, Mint>>,
+    pub mint_b: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(
+        mut,
+        associated_token::mint = mint_a,
+        associated_token::authority = escrow,
+        associated_token::token_program = token_program,
+    )]
+    pub vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        init_if_needed,
+        payer = taker,
+        associated_token::mint = mint_a,
+        associated_token::authority = taker,
+        associated_token::token_program = token_program,
+    )]
+    pub taker_ata_a: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        mut,
+        associated_token::mint = mint_b,
+        associated_token::authority = taker,
+        associated_token::token_program = token_program,
+    )]
+    pub taker_ata_b: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        init_if_needed,
+        payer = taker,
+        associated_token::mint = mint_b,
+        associated_token::authority = maker,
+        associated_token::token_program = token_program,
+    )]
+    pub maker_ata_b: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
+}
+
+impl<'info> Take<'info> {
+    fn transfer_to_maker(&mut self) -> Result<()> {
+        transfer_checked(
+            CpiContext::new(
+                self.token_program.key(),
+                TransferChecked {
+                    from: self.taker_ata_b.to_account_info(),
+                    to: self.maker_ata_b.to_account_info(),
+                    mint: self.mint_b.to_account_info(),
+                    authority: self.taker.to_account_info(),
+                },
+            ),
+            self.escrow.receive,
+            self.mint_b.decimals,
+        )
+    }
+
+    fn withdraw_and_close_vault(&mut self) -> Result<()> {
+        let signer_seeds: [&[&[u8]]; 1] = [&[
+            b"escrow",
+            self.maker.to_account_info().key.as_ref(),
+            &self.escrow.seed.to_le_bytes()[..],
+            &[self.escrow.bump],
+        ]];
+
+        transfer_checked(
+            CpiContext::new_with_signer(
+                self.token_program.key(),
+                TransferChecked {
+                    from: self.vault.to_account_info(),
+                    to: self.taker_ata_a.to_account_info(),
+                    mint: self.mint_a.to_account_info(),
+                    authority: self.escrow.to_account_info(),
+                },
+                &signer_seeds,
+            ),
+            self.vault.amount,
+            self.mint_a.decimals,
+        )?;
+
+        close_account(CpiContext::new_with_signer(
+            self.token_program.key(),
+            CloseAccount {
+                account: self.vault.to_account_info(),
+                authority: self.escrow.to_account_info(),
+                destination: self.maker.to_account_info(),
+            },
+            &signer_seeds,
+        ))
+    }
+}
+
+pub fn handler(ctx: Context<Take>) -> Result<()> {
+    ctx.accounts.transfer_to_maker()?;
+    ctx.accounts.withdraw_and_close_vault()
+}
+```
+
+Three mechanics in this instruction are worth walking through.
+
+### `has_one` prevents wrong-account substitution
+
+The `has_one = maker`, `has_one = mint_a`, `has_one = mint_b` constraints tell Anchor: "the account named `maker` passed in the instruction must equal `escrow.maker`". Same for the two mints. Without these checks, a malicious taker could pass in any `mint_a` account and the program would happily process the swap — meaning the taker could drain the vault using a different (valueless) mint account and still pretend the constraints match.
+
+The `has_one` binding makes the escrow state the authoritative record and the passed-in accounts merely views onto it. The PDA derivation already binds `maker` to the escrow (the seeds include `maker.key()`), so the `has_one = maker` is technically redundant for that account — but it costs almost nothing and makes the security property explicit.
+
+<Warning>
+Always bind every `Pubkey` field stored in a PDA via `has_one`. The PDA derivation only covers the seeds, not the fields inside the account data. Skipping `has_one` on a stored mint or authority field is one of the most common sources of Solana program exploits.
+</Warning>
+
+### `close = maker` reclaims rent
+
+When `close = maker` is set on an `#[account(mut, ...)]`, Anchor:
+
+1. Zero-fills the account data after the instruction returns.
+2. Sets the account's lamport balance to zero and transfers the lamports to `maker`.
+3. Assigns the account to the System program so it cannot be reopened with the same address.
+
+This is how escrows return rent to the maker at the end of the swap — without `close`, the rent lamports would stay locked forever.
+
+### Who pays for `maker_ata_b`
+
+The `init_if_needed` constraint on `maker_ata_b` lists `payer = taker`. The taker funds the maker's receive ATA if it does not already exist — which makes sense economically, because the taker is the one who wants the swap to complete. If the ATA already exists (maker had previously received mint B), `init_if_needed` does nothing and the taker pays no extra rent. The `associated_token::authority = maker` constraint binds the new ATA to the maker as its sole token-account authority, so the taker cannot substitute an account they control.
+
+### Signing CPIs as a PDA
+
+The most distinctive pattern in this program is the PDA-signed transfer from the vault back to the taker:
+
+```rust
+let signer_seeds: [&[&[u8]]; 1] = [&[
+    b"escrow",
+    self.maker.to_account_info().key.as_ref(),
+    &self.escrow.seed.to_le_bytes()[..],
+    &[self.escrow.bump],
+]];
+
+transfer_checked(
+    CpiContext::new_with_signer(
+        self.token_program.key(),
+        TransferChecked { authority: self.escrow.to_account_info(), ... },
+        &signer_seeds,
+    ),
+    ...
+)?;
+```
+
+`CpiContext::new_with_signer` tells the runtime: "the authority on this CPI is a PDA, and here are the seeds used to derive it". The Solana runtime regenerates the PDA from the seeds, verifies it matches the `authority` account, and grants the CPI the signer privilege as if the PDA had signed the outer transaction.
+
+Two details to notice:
+
+- The seed list **must end with the bump byte**. The bump is the last seed Anchor pushes through when deriving the canonical PDA.
+- The program can sign as a PDA **only if the PDA was derived from its own program ID**. The runtime rejects PDA signing attempts from the wrong program.
+
+The same seed list is reused for the subsequent `close_account` CPI — the vault's authority is the Escrow PDA, so the program signs as the PDA to close the vault and sweep its rent lamports back to the maker.
+
+### Order of operations
+
+The handler runs `transfer_to_maker` **before** `withdraw_and_close_vault`. Vault safety does not depend on this ordering — Solana transactions are atomic end-to-end, so any failed sub-call anywhere in the instruction rolls back every prior state change, including the vault release. The ordering is a **code-clarity and cost-efficiency** convention: fail fast on the cheap external check (does the taker actually hold enough mint B?) before doing the more expensive PDA-signed vault sweep. If you reversed the order the program would still be safe, just less readable and slightly more wasteful when the taker cannot pay.
+
+## The `refund` instruction
+
+If no taker shows up, the maker can cancel the escrow and reclaim their token A.
+
+Create `programs/anchor-escrow/src/instructions/refund.rs`:
+
+```rust
+use anchor_lang::prelude::*;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token_interface::{
+        close_account, transfer_checked, CloseAccount, Mint, TokenAccount, TokenInterface,
+        TransferChecked,
+    },
+};
+
+use crate::error::EscrowError;
+use crate::state::Escrow;
+
+#[derive(Accounts)]
+pub struct Refund<'info> {
+    #[account(mut)]
+    pub maker: Signer<'info>,
+
+    #[account(
+        mut,
+        close = maker,
+        seeds = [b"escrow", maker.key().as_ref(), escrow.seed.to_le_bytes().as_ref()],
+        bump = escrow.bump,
+        has_one = maker @ EscrowError::InvalidMaker,
+        has_one = mint_a @ EscrowError::InvalidMintA,
+    )]
+    pub escrow: Box<Account<'info, Escrow>>,
+
+    #[account(mint::token_program = token_program)]
+    pub mint_a: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(
+        mut,
+        associated_token::mint = mint_a,
+        associated_token::authority = escrow,
+        associated_token::token_program = token_program,
+    )]
+    pub vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        init_if_needed,
+        payer = maker,
+        associated_token::mint = mint_a,
+        associated_token::authority = maker,
+        associated_token::token_program = token_program,
+    )]
+    pub maker_ata_a: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
+}
+
+impl<'info> Refund<'info> {
+    fn withdraw_and_close_vault(&mut self) -> Result<()> {
+        let signer_seeds: [&[&[u8]]; 1] = [&[
+            b"escrow",
+            self.maker.to_account_info().key.as_ref(),
+            &self.escrow.seed.to_le_bytes()[..],
+            &[self.escrow.bump],
+        ]];
+
+        transfer_checked(
+            CpiContext::new_with_signer(
+                self.token_program.key(),
+                TransferChecked {
+                    from: self.vault.to_account_info(),
+                    to: self.maker_ata_a.to_account_info(),
+                    mint: self.mint_a.to_account_info(),
+                    authority: self.escrow.to_account_info(),
+                },
+                &signer_seeds,
+            ),
+            self.vault.amount,
+            self.mint_a.decimals,
+        )?;
+
+        close_account(CpiContext::new_with_signer(
+            self.token_program.key(),
+            CloseAccount {
+                account: self.vault.to_account_info(),
+                authority: self.escrow.to_account_info(),
+                destination: self.maker.to_account_info(),
+            },
+            &signer_seeds,
+        ))
+    }
+}
+
+pub fn handler(ctx: Context<Refund>) -> Result<()> {
+    ctx.accounts.withdraw_and_close_vault()
+}
+```
+
+`Refund` is `Take` with half the work:
+
+- Only the maker signs — no taker, so no second token transfer.
+- No mint B involved. The vault sweeps back to the maker's `mint_a` ATA (re-created with `init_if_needed` if the maker closed it after `make`).
+- The escrow `has_one = maker` constraint ensures only the original maker can refund. Combined with the `maker: Signer` requirement, nobody else can trigger this instruction.
+
+Note the absence of `has_one = mint_b`. `refund` does not touch mint B, so the constraint is unnecessary.
+
+## Instruction module and `lib.rs`
+
+Create `programs/anchor-escrow/src/instructions/mod.rs`:
+
+```rust
+pub mod make;
+pub mod refund;
+pub mod take;
+
+pub use make::*;
+pub use refund::*;
+pub use take::*;
+```
+
+The glob re-exports produce a harmless ambiguous-glob warning about three `handler` symbols — keep the globs anyway, because Anchor's `#[program]` macro requires them to generate its client-side account helper modules.
+
+Replace `programs/anchor-escrow/src/lib.rs` with the entry point:
+
+```rust
+#![allow(unexpected_cfgs)]
+
+use anchor_lang::prelude::*;
+
+pub mod error;
+pub mod instructions;
+pub mod state;
+
+pub use instructions::*;
+
+declare_id!("ReplaceWithYourProgramId1111111111111111111");
+
+#[program]
+pub mod anchor_escrow {
+    use super::*;
+
+    pub fn make(ctx: Context<Make>, seed: u64, receive: u64, amount: u64) -> Result<()> {
+        instructions::make::handler(ctx, seed, receive, amount)
+    }
+
+    pub fn take(ctx: Context<Take>) -> Result<()> {
+        instructions::take::handler(ctx)
+    }
+
+    pub fn refund(ctx: Context<Refund>) -> Result<()> {
+        instructions::refund::handler(ctx)
+    }
+}
+```
+
+## Building and IDL
+
+```shell
+anchor build
+```
+
+This compiles the program to `target/deploy/anchor_escrow.so` and emits the IDL at `target/idl/anchor_escrow.json`. If the build fails with a `declare_id!` mismatch, run `anchor keys sync` and rebuild.
+
+## A TypeScript test for the full lifecycle
+
+Create `tests/anchor-escrow.ts`. This test spins up make → take → refund against the Anchor provider (which points at Surfpool or `solana-test-validator` depending on your `Anchor.toml`):
+
+```typescript
+import * as anchor from "@anchor-lang/core";
+import { BN, Program } from "@anchor-lang/core";
+import { AnchorEscrow } from "../target/types/anchor_escrow";
+import {
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAccount,
+} from "@solana/spl-token";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram } from "@solana/web3.js";
+import { assert } from "chai";
+
+describe("anchor-escrow", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+  const program = anchor.workspace.anchorEscrow as Program<AnchorEscrow>;
+
+  const maker = Keypair.generate();
+  const taker = Keypair.generate();
+  const seed = new BN(Math.floor(Math.random() * 1_000_000));
+
+  let mintA: PublicKey;
+  let mintB: PublicKey;
+  let makerAtaA: PublicKey;
+  let makerAtaB: PublicKey;
+  let takerAtaA: PublicKey;
+  let takerAtaB: PublicKey;
+  let escrowPda: PublicKey;
+  let vault: PublicKey;
+
+  const amount = new BN(1_000_000_000);  // 1.0 of mint A
+  const receive = new BN(500_000_000);   //  0.5 of mint B
+
+  before(async () => {
+    // Fund both wallets.
+    for (const kp of [maker, taker]) {
+      const sig = await provider.connection.requestAirdrop(kp.publicKey, 5 * LAMPORTS_PER_SOL);
+      await provider.connection.confirmTransaction(sig, "confirmed");
+    }
+
+    // Mints: maker mints both for convenience.
+    mintA = await createMint(provider.connection, maker, maker.publicKey, null, 9);
+    mintB = await createMint(provider.connection, maker, maker.publicKey, null, 9);
+
+    // Maker starts with 1.0 of mint A. Taker starts with 1.0 of mint B.
+    makerAtaA = (await getOrCreateAssociatedTokenAccount(provider.connection, maker, mintA, maker.publicKey)).address;
+    takerAtaB = (await getOrCreateAssociatedTokenAccount(provider.connection, taker, mintB, taker.publicKey)).address;
+    await mintTo(provider.connection, maker, mintA, makerAtaA, maker, 1_000_000_000);
+    await mintTo(provider.connection, maker, mintB, takerAtaB, maker, 1_000_000_000);
+
+    // Derive the escrow PDA and the vault ATA.
+    [escrowPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("escrow"), maker.publicKey.toBuffer(), seed.toArrayLike(Buffer, "le", 8)],
+      program.programId,
+    );
+    vault = anchor.utils.token.associatedAddress({ mint: mintA, owner: escrowPda });
+  });
+
+  it("make: maker opens the escrow", async () => {
+    await program.methods
+      .make(seed, receive, amount)
+      .accounts({
+        maker: maker.publicKey,
+        escrow: escrowPda,
+        mintA,
+        mintB,
+        makerAtaA,
+        vault,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([maker])
+      .rpc();
+
+    const vaultAccount = await getAccount(provider.connection, vault);
+    assert.equal(vaultAccount.amount.toString(), amount.toString());
+
+    const makerAtaABal = await getAccount(provider.connection, makerAtaA);
+    assert.equal(makerAtaABal.amount.toString(), "0");
+
+    const escrowAccount = await program.account.escrow.fetch(escrowPda);
+    assert.equal(escrowAccount.maker.toBase58(), maker.publicKey.toBase58());
+    assert.equal(escrowAccount.mintA.toBase58(), mintA.toBase58());
+    assert.equal(escrowAccount.mintB.toBase58(), mintB.toBase58());
+    assert.equal(escrowAccount.receive.toString(), receive.toString());
+  });
+
+  it("take: taker completes the swap", async () => {
+    takerAtaA = anchor.utils.token.associatedAddress({ mint: mintA, owner: taker.publicKey });
+    makerAtaB = anchor.utils.token.associatedAddress({ mint: mintB, owner: maker.publicKey });
+
+    await program.methods
+      .take()
+      .accounts({
+        taker: taker.publicKey,
+        maker: maker.publicKey,
+        escrow: escrowPda,
+        mintA,
+        mintB,
+        vault,
+        takerAtaA,
+        takerAtaB,
+        makerAtaB,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([taker])
+      .rpc();
+
+    const takerAtaABal = await getAccount(provider.connection, takerAtaA);
+    assert.equal(takerAtaABal.amount.toString(), amount.toString());
+
+    const makerAtaBBal = await getAccount(provider.connection, makerAtaB);
+    assert.equal(makerAtaBBal.amount.toString(), receive.toString());
+
+    const escrowInfo = await provider.connection.getAccountInfo(escrowPda);
+    assert.isNull(escrowInfo, "escrow should be closed");
+
+    const vaultInfo = await provider.connection.getAccountInfo(vault);
+    assert.isNull(vaultInfo, "vault should be closed");
+  });
+
+  it("refund: maker reclaims after a separate open", async () => {
+    // Open a new escrow with a different seed.
+    const refundSeed = new BN(Math.floor(Math.random() * 1_000_000) + 1_000_000);
+    const [refundEscrow] = PublicKey.findProgramAddressSync(
+      [Buffer.from("escrow"), maker.publicKey.toBuffer(), refundSeed.toArrayLike(Buffer, "le", 8)],
+      program.programId,
+    );
+    const refundVault = anchor.utils.token.associatedAddress({ mint: mintA, owner: refundEscrow });
+
+    // Top the maker up again so they have something to deposit.
+    await mintTo(provider.connection, maker, mintA, makerAtaA, maker, 200_000_000);
+
+    await program.methods
+      .make(refundSeed, new BN(1), new BN(200_000_000))
+      .accounts({
+        maker: maker.publicKey,
+        escrow: refundEscrow,
+        mintA,
+        mintB,
+        makerAtaA,
+        vault: refundVault,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([maker])
+      .rpc();
+
+    await program.methods
+      .refund()
+      .accounts({
+        maker: maker.publicKey,
+        escrow: refundEscrow,
+        mintA,
+        vault: refundVault,
+        makerAtaA,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([maker])
+      .rpc();
+
+    const makerAtaABal = await getAccount(provider.connection, makerAtaA);
+    assert.equal(makerAtaABal.amount.toString(), "200000000");
+
+    const refundEscrowInfo = await provider.connection.getAccountInfo(refundEscrow);
+    assert.isNull(refundEscrowInfo);
+
+    const refundVaultInfo = await provider.connection.getAccountInfo(refundVault);
+    assert.isNull(refundVaultInfo, "refund vault should be closed");
+  });
+});
+```
+
+Run the full lifecycle:
+
+```shell
+anchor test
+```
+
+A successful run produces three green checkmarks — one per instruction.
+
+<Tip>
+If `anchor test` fails with a connection error, Surfpool is not installed and Anchor 1.0.0 defaults to it. Either install Surfpool or fall back to the legacy validator with `anchor test --validator legacy`.
+</Tip>
+
+## Deploying to devnet and mainnet
+
+Switch to devnet:
+
+```shell
+solana config set --url https://api.devnet.solana.com
+solana airdrop 2
+anchor program deploy --provider.cluster devnet
+```
+
+<Note>
+If `anchor program deploy` returns a 503 from the default devnet RPC, add `--with-compute-unit-price 1` — the built-in fee-bump routes the upload through a higher-priority lane. This is a known workaround for deployment rate-limits. See [Anchor issue #4255](https://github.com/solana-foundation/anchor/issues/4255).
+</Note>
+
+Deploying to mainnet with a [Chainstack Solana node](https://console.chainstack.com/):
+
+```shell
+anchor program deploy \
+  --provider.cluster https://solana-mainnet.core.chainstack.com/YOUR_AUTH_KEY \
+  --provider.wallet ~/.config/solana/mainnet.json
+```
+
+Chainstack mainnet endpoints do not rate-limit program deploys the way the public RPC does, so large programs upload in one shot without retry logic.
+
+## Production considerations
+
+### Partial fills
+
+The program as written requires the taker to fulfill the escrow in full — `take` always transfers the entire vault. Extending to partial fills requires tracking a remaining balance in the Escrow struct and computing a proportional amount of mint B per call. Most production order-book programs (OpenBook, Phoenix) instead prefer many small escrows over a single partially-fillable one, because the accounting is simpler and the program cannot end up holding a dust amount that no rational taker will fill.
+
+### Price staleness
+
+An escrow is a fixed offer: the maker locks in a price at `make` time and lives with whatever the market does until a taker arrives or they refund. For long-lived offers this is a real risk — a token whose market price doubles will get filled immediately, probably at a loss to the maker. Production protocols mitigate with:
+
+- **Expiry timestamps** — add an `expires_at: i64` field; `take` fails after `Clock::get()?.unix_timestamp > expires_at`.
+- **Oracle-pegged takers** — require the taker to provide a Pyth or Switchboard price update and enforce a bound. This turns the escrow into a slippage-protected swap.
+- **Short refund latency** — keep the maker able to cancel cheaply and frequently, so they can rebalance.
+
+### Front-running and the taker set
+
+The program as written is permissionless: anyone holding mint B and enough SOL for fees may call `take`. For simple bilateral OTC swaps this is benign — the maker gets their desired mint B regardless of who the taker is. But if you extend the Escrow state to gate `take` on a specific `taker: Pubkey`, the `make` transaction becomes a front-running target: a searcher watching the mempool can construct their own `take` against the just-created escrow. Gating by the taker's pubkey is not sufficient on its own; you need either a commit-reveal flow, a signed authorization blob from the maker, or an off-chain private relay.
+
+### Economic attacks on the vault
+
+The Escrow PDA owns the vault, and the vault holds real tokens. Always check:
+
+- **No `close` without `mut`** — you cannot close an account that is not marked mutable.
+- **`has_one` on every stored `Pubkey`** — missing `has_one` on a stored mint or authority is the most common escrow exploit. The PDA derivation only covers seeds, not stored fields.
+- **`associated_token::authority = escrow`** — if the vault authority is set to anything other than the Escrow PDA, the program loses control.
+- **`mint::token_program` and `associated_token::token_program`** — always thread the `token_program` account through every constraint. Mixing SPL Token and Token-2022 accounts under a single program instance is a common source of subtle state bugs.
+
+### Token-2022 extensions
+
+The program uses `TokenInterface`, so it accepts Token-2022 mints. Several extensions are quietly hostile to the escrow pattern and require explicit handling before you accept arbitrary user-supplied mints:
+
+- **Transfer fees** — the mint deducts a fee from each transfer, so the vault ends up holding less than the `amount` the maker thought they deposited. `take` reads `self.vault.amount` and withdraws whatever the vault actually holds — which is fine from a correctness standpoint but changes what the taker receives. Either document the behavior or reject transfer-fee mints at `make` time.
+- **Default account state = Frozen** — the mint ships with all new accounts frozen until the freeze authority thaws them. Your `make` instruction creates the vault ATA successfully, but the very next `transfer_checked` fails because the vault is frozen. Because `make` is a single instruction, the failed deposit rolls back the vault initialization atomically — the maker's `mint_a` ATA is untouched and nothing is locked. The failure is still a bad user experience, so reject frozen-by-default mints at `make` time to surface the error cleanly.
+- **Withheld transfer fees on the vault** — if the vault accrues withheld fees (from Token-2022 mints that redirect a fraction of every transfer to the mint), `close_account` rejects the close. The program must call `harvest_withheld_tokens_to_mint` on the vault before the close, or the vault cannot be cleaned up and the escrow cannot be finalized.
+- **CPI guard** — a token account with CPI guard enabled rejects outgoing transfers made via a cross-program invocation. The vault is set up and manipulated entirely through CPIs, so enabling CPI guard on the vault (directly or through a propagated extension) freezes the escrow mid-flight.
+- **Close account authority** — this Token-2022 extension lets the mint designate a separate "closer" per token account, overriding the account's own authority. A vault whose mint propagates a non-PDA close authority to new ATAs cannot be closed by the program's PDA-signed `close_account` CPI; the close returns `MissingRequiredSignature` and the vault becomes unclosable.
+- **Memo transfer on the maker's ATA** — if the maker enables the `MemoTransfer` extension on their `maker_ata_b`, every incoming transfer must carry a memo instruction. The taker's `transfer_checked` in `take` has no memo attached, so the maker's extension choice bricks the swap. Common on stablecoins and regulated tokens. Note that this is a **token-account extension**, not a mint extension, so it is invisible to mint TLV inspection — and the maker can enable it any time before `take` is called. Mitigations: have the client check `RequiredMemoTransfers` on `maker_ata_b` before submitting `take`, or document that escrows into memo-required ATAs are out of scope.
+- **Transfer hooks** — fire a CPI into a third-party program on every transfer. Your `transfer_checked` call now passes through arbitrary code. Whitelist trusted hook programs or reject mints with transfer hooks entirely.
+- **Confidential transfers** — amounts are encrypted. The vault balance readout in `take` and `refund` would need an auditor key.
+- **Non-transferable** — a non-transferable Token-2022 mint cannot be swapped; your program refuses any transfer and the maker cannot refund. Reject these at `make` time.
+- **Permanent delegate** — the mint authority can unilaterally move tokens out of any account, including your vault. Reject mints with this extension if you are holding user funds.
+
+<Warning>
+For an escrow that accepts arbitrary user-supplied mints, inspect the Token-2022 extension list on both mints at `make` time and reject the set of mint-level extensions you have not handled. The `anchor_spl::token_2022_extensions` module exposes parsers for every extension; read the mint's `TLV` data and check for each `ExtensionType` you disallow. **Account-level extensions** (`MemoTransfer`, `CpiGuard`, `CloseAccountAuthority`) are a separate class — they live on the token account, not the mint, and can be toggled after the escrow is opened. Handle these at the client layer or reject any account that carries one at `take` / `refund` time.
+</Warning>
+
+## Common gotchas
+
+### `init_if_needed` without constraints masks bugs
+
+`init_if_needed` in `take` for `taker_ata_a` and `maker_ata_b` is convenient — the caller does not need to pre-create destination ATAs. But if you forget the `associated_token::mint` and `associated_token::authority` constraints, Anchor will happily initialize a fresh, empty ATA with whatever seeds the caller provides. Always pair `init_if_needed` with full mint/authority/token-program constraints so Anchor validates the account whether it exists or not.
+
+### Seed-ordering mistakes
+
+The PDA seeds are positional. `["escrow", maker, seed]` is not the same PDA as `["escrow", seed, maker]`. Every reference to the seed list — in the `Make.seeds` constraint, in `signer_seeds` for the `take` and `refund` CPIs, and on the client side — must list the seeds in the same order. A mismatch manifests as `ConstraintSeeds` errors at runtime; the compiler cannot catch it.
+
+### Re-using the same seed
+
+If a maker calls `make` with the same `seed` twice (without a refund in between), the second call fails with `AccountAlreadyInitialized` — the PDA is already taken. For UX, either:
+
+- Increment the seed client-side each time (e.g., take the current unix timestamp as the seed).
+- Let the client derive the PDA up front and fail fast if the account exists.
+
+### `close` only clears lamports at instruction end
+
+Anchor's `close = destination` runs after the handler returns. You cannot read from or transfer from an account in the same instruction after it has been closed — because at instruction-runtime it is still "alive" as far as the handler's account data is concerned. The vault close and the final token transfer must happen **before** the handler returns, and the close semantic takes effect during the account-writeback phase of the runtime.
+
+### BN serialization of u64 seeds
+
+On the client, `seed.toArrayLike(Buffer, "le", 8)` produces the 8-byte little-endian encoding that matches `seed.to_le_bytes()` in Rust. Getting either the endianness or the length wrong (e.g., `"be"` or length 4) yields a different PDA. Use the same helper in every derivation path.
+
+### Mint decimals must be consistent
+
+`transfer_checked` fails if the `decimals` you pass do not match the mint account. If you read the mint once and cache `decimals` on the escrow state to save a mint fetch on `take`, make sure nothing mutates the mint's decimals between `make` and `take` — Token-2022 extensions that modify mint metadata can surprise you here.
+
+## Further reading
+
+- [Solana: Anchor development](/docs/solana-anchor-development) — project setup, constraints, deployment, testing
+- [Solana: Program derived addresses and cross-program invocations](/docs/solana-program-derived-addresses-and-cross-program-invocations) — PDA derivation and CPI mechanics
+- [Solana: Token Extensions (Token-2022)](/docs/solana-token-extensions) — extension semantics your escrow may need to handle
+- [Anchor 1.0.0 release notes](https://github.com/solana-foundation/anchor/releases/tag/v1.0.0) — breaking changes from pre-1.0 Anchor
+- [`solana-foundation/anchor` `tests/escrow`](https://github.com/solana-foundation/anchor/tree/master/tests/escrow) — canonical integration test inside the Anchor monorepo
+- [`solana-foundation/solana-bootcamp-2026` `04-escrow`](https://github.com/solana-foundation/solana-bootcamp-2026/tree/main/04-escrow) — maker/take/refund with LiteSVM tests
+- [`solana-developers/program-examples` `tokens/escrow`](https://github.com/solana-developers/program-examples/tree/main/tokens/escrow) — parallel native Rust and Anchor implementations
