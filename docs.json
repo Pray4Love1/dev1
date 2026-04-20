@@ -1266,6 +1266,7 @@
             "pages": [
               "docs/mcp-servers-introduction",
               "docs/chainstack-mcp-server",
+              "docs/migrate-to-chainstack-with-ai",
               "docs/developer-portal-mcp-server",
               "docs/evm-mcp-server",
               "docs/solana-mcp-server"
