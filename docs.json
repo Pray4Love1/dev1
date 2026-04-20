@@ -3751,6 +3751,7 @@
                 "pages": [
                   "docs/self-hosted/requirements",
                   "docs/self-hosted/environment-setup",
+                  "docs/self-hosted/download-installer",
                   "docs/self-hosted/installation",
                   "docs/self-hosted/advanced-installation",
                   "docs/self-hosted/upgrade",
