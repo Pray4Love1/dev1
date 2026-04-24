@@ -1,5 +1,6 @@
 ---
 title: "Blob transactions the hard way"
+description: Construct and send EIP-4844 blob transactions manually on Ethereum using ethers.js and c-kzg, covering blob encoding, commitment proofs, and gas fees.
 ---
 
 **TLDR:**
@@ -15,7 +16,7 @@ Or *almost* the hard way as we are going to use a bit of Python.
 The focus of this guide is on keeping the [Dencun and EIP-4844 talk](/docs/ethereum-dencun-rundown-with-examples) to a minimum and to give you hands-on exposure to blob transactions, which is a good way to supplement the prior general knowledge on the topic.
 
 <Info>
-  Chainstack Ethereum nodes follow the consensus client defaults for blob data availability. With Nimbus, blob sidecars are retained for roughly 18 days (per EIP-4844).
+  Chainstack Ethereum nodes follow the consensus client defaults for blob data availability. With Lighthouse, blob sidecars are retained for roughly 18 days (per EIP-4844).
 
   [Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required. You can sign up with your GitHub, X, Google, or Microsoft account.
 </Info>
@@ -113,7 +114,7 @@ Here's what we are going to do:
 
 ### Prerequisites
 
-1. Log in to your [Chainstack account](https://console.chainstack.com/) and get an Ethereum Sepolia node. You can get by with a full node for this exercise.
+1. Log in to your [Chainstack account](https://console.chainstack.com/) and get a [reliable Ethereum RPC endpoint](https://chainstack.com/build-better-with-ethereum/) for Sepolia. You can get by with a full node for this exercise.
 
 2. Install [eth-abi](https://pypi.org/project/eth-abi/).
 
@@ -230,7 +231,7 @@ Let's first run the script and then have a look at the transaction committed to 
 
   tx = {
       "type": 3, # Type-3 transaction
-      "chainId": 11155111,  # Hoodi 560048; Sepolia 11155111; Holesky 17000
+      "chainId": 11155111,  # Hoodi 560048; Sepolia 11155111; Holesky 17000 (deprecated on Oct 31, 2025)
       "from": acct.address,
       "to": "0x0000000000000000000000000000000000000000", # Does not matter what account you send it to
       "value": 0,
@@ -290,11 +291,11 @@ Let's retrieve the blob data from the network.
 
 Since we are working with the consensus layer now, make sure you now use the consensus client endpoint from your Chainstack node details.
 
-Our example transaction is included in [block 6090748](https://sepolia.etherscan.io/txs?block=6090748&isblob=true) on the execution layer. The call we are going to use is [Retrieve blob sidecar](/reference/getblobsidecarbyslot).
+Our example transaction is included in [block 6090748](https://sepolia.etherscan.io/txs?block=6090748&isblob=true) on the execution layer. The call we are going to use is [Retrieve blobs by block ID](/reference/getblobsbyblockid).
 
 To provide a specific pointer for the blob data on the consensus layer, we can use one of the following:`head`, `genesis`, `finalized`, or `slot_number`.
 
-The original [Beacon chain API spec](https://ethereum.github.io/beacon-APIs/#/Beacon/getBlobSidecars) also includes `hex encoded blockRoot with 0x prefix`, but Nimbus nodes (that Chainstack uses) do not support this for finalized blocks for efficiency. And we don't need this anyway as you will see later.
+The original [Beacon chain API spec](https://ethereum.github.io/beacon-APIs/#/Beacon/getBlobSidecars) also includes `hex encoded blockRoot with 0x prefix`, but Chainstack nodes do not support this for finalized blocks for efficiency. And we don't need this anyway as you will see later.
 
 Note that the call does not support the execution layer block number, you can only provide the respective slot number on the consensus layer. Programmatically, we'll deal with this later. For now, we'll just pick the respective slot number from the Sepolia Beacon chain explorer: [slot 5203463](https://sepolia.beaconcha.in/slot/5203463).
 
@@ -303,7 +304,7 @@ Here's our call
 <CodeGroup>
   ```shell Shell
   curl --request GET \
-       --url CONSENSUS_LAYER_URL/eth/v1/beacon/blob_sidecars/5203463 \
+       --url CONSENSUS_LAYER_URL/eth/v1/beacon/blobs/5203463 \
        --header 'accept: application/json' | jq "."
   ```
 </CodeGroup>
@@ -529,7 +530,7 @@ We'll retrieve this parent slot root, get the slot number associated with root w
   slot_number = int(header_data['data']['header']['message']['slot']) + 1
 
   # Retrieve blobs
-  blobs_url = f"{os.getenv('CONSENSUS_LAYER_URL')}/eth/v1/beacon/blob_sidecars/{slot_number}"
+  blobs_url = f"{os.getenv('CONSENSUS_LAYER_URL')}/eth/v1/beacon/blobs/{slot_number}"
   blobs_response = requests.get(blobs_url).json()
   blobs = blobs_response['data']
 
@@ -620,23 +621,22 @@ Example for our transaction:
 
 ## Conclusion
 
-This hands-on the hard way guide walked you through creating, detecting, and verifying the type-3 transactions (aka blob transactions). It also showed you some of the pitfalls and how to navigate them like getting slot number associated with the execution layer blob transaction, being able to retrieve the blobs through the Nimbus client, blob data being stored for 18 days, and so on.
+This hands-on the hard way guide walked you through creating, detecting, and verifying the type-3 transactions (aka blob transactions). It also showed you some of the pitfalls and how to navigate them like getting slot number associated with the execution layer blob transaction, being able to retrieve the blobs through the consensus layer client, blob data being stored for 18 days, and so on.
 
 ### About the author
 
 <CardGroup>
-  <Card title="Ake" img="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Director of Developer Experience @ Chainstack
+  <Card title="Ake">
+    <img src="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg" alt="Ake" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/>  Talk to me all things Web3
+    <Icon icon="code" iconType="solid" /> Director of Developer Experience @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> Talk to me all things Web3
+    <br />20 years in technology | 8+ years in Web3 full time years experience
 
-    20 years in technology | 8+ years in Web3 full time years experience
-
-    Trusted advisor helping developers navigate the complexities of blockchain infrastructure
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/akegaviar/)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/akegaviar)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/ake/)
-    [<Icon icon="warpcast"  iconType="brands"/>](https://warpcast.com/ake)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/akegaviar/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/akegaviar" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/ake/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

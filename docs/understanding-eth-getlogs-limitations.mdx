@@ -1,5 +1,6 @@
 ---
 title: "Understanding eth_getLogs limitations"
+description: "Master eth_getLogs block range limits and best practices. Paginate queries, filter efficiently, and optimize Ethereum log retrieval for scalable DApps."
 ---
 
 **TLDR:**
@@ -134,7 +135,7 @@ Let’s take it a step further and show an example of how we can fetch and store
 
 * node.js
 * MongoDB Atlas account with database setup and dedicated account to it
-* [Chainstack Ethereum node](/docs/manage-your-networks#join-a-public-network)
+* [Chainstack Ethereum node](/docs/manage-your-networks)
 
 ### Setup
 
@@ -301,12 +302,16 @@ Understanding the nuances and best practices of using `eth_getLogs` is vital for
 ### About the author
 
 <CardGroup>
-  <Card title="Edin Drazevicanin" img="/images/docs/juOi73j.png">
-    <Icon icon="code"  iconType="solid"/> Technical Support Engineer @ Chainstack
+  <Card title="Edin Drazevicanin">
+    <img src="/images/docs/juOi73j.png" alt="Edin Drazevicanin" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="github"  iconType="brands"/> [0x6564](https://github.com/0x6564)
+    <Icon icon="code" iconType="solid" /> Technical Support Engineer @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> JUST BUIDL IT!
 
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/edeenn22)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/edindr/)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/0x6564" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/edeenn22" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/edindr/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

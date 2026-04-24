@@ -1,7 +1,9 @@
 ---
-title: "Flashblocks on Base: 200ms preconfirmations for lightning-fast UX"
-description: "Learn how Base's Flashblocks deliver 200ms transaction preconfirmations, making Base 10x faster. Available on Chainstack."
+title: "Flashblocks on Base: 200ms preconfirmations"
+description: Enable Flashblocks on Base through Chainstack for 200ms transaction preconfirmations, making your dApp experience up to 10x faster on the network.
 ---
+
+Get started with a [reliable Base RPC endpoint](https://chainstack.com/build-better-with-base/) to use Flashblocks.
 
 Flashblocks is a block builder sidecar for Optimism Stack chains. This sidecar is called Rollup-Boost. It's designed and built by [Flashbots](https://www.flashbots.net/)—the same team that originally productized MEV on Ethereum. Co-designed with Uniswap Labs and OP Labs.
 
@@ -20,8 +22,14 @@ This two-side architecture implements the following Flashblocks flow:
   * `eth_getBalance` with `pending` tag
   * `eth_getTransactionCount` with `pending` tag
   * `eth_getTransactionByHash` with `pending` tag
+  * `eth_call` with `pending` tag
   * `eth_sendRawTransactionSync`
 * The transaction ordering is done at the Flashblocks level instead of the block level.
+
+Additionally, the following WebSocket subscription methods are available exclusively on Flashblocks-enabled endpoints:
+  * [`eth_subscribe newFlashblockTransactions`](/reference/base-subscribe-newflashblocktransactions) — stream individual transactions as they are pre-confirmed (~200ms each)
+  * [`eth_subscribe pendingLogs`](/reference/base-subscribe-pendinglogs) — stream filtered event logs from pre-confirmed transactions
+  * [`eth_subscribe newFlashblocks`](/reference/base-subscribe-newflashblocks) — stream full Flashblock payload objects from the sequencer
 
 Each 2-second block on the Base chain is formed after 10 different Flashblocks have been processed—each Flashblock with its own transaction ordering.
 
@@ -88,19 +96,18 @@ The actual confirmation time depends on:
 ### About the author
 
 <CardGroup>
-  <Card title="Ake" img="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Director of Developer Experience @ Chainstack
+  <Card title="Ake">
+    <img src="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg" alt="Ake" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/>  Talk to me all things Web3
+    <Icon icon="code" iconType="solid" /> Director of Developer Experience @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> Talk to me all things Web3
+    <br />20 years in technology | 8+ years in Web3 full time years experience
 
-    20 years in technology | 8+ years in Web3 full time years experience
-
-    Trusted advisor helping developers navigate the complexities of blockchain infrastructure
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/akegaviar/)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/akegaviar)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/ake/)
-    [<Icon icon="warpcast"  iconType="brands"/>](https://warpcast.com/ake)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/akegaviar/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/akegaviar" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/ake/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>
 

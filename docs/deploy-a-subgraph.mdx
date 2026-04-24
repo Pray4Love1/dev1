@@ -1,6 +1,21 @@
 ---
 title: "Deploy a subgraph"
+description: "Deploy a subgraph to Chainstack's managed service for indexing blockchain data with The Graph protocol. Transitioning to Ormi for production workloads."
 ---
+
+<Warning>
+**Chainstack Subgraphs is transitioning to Ormi**
+
+Chainstack is sunsetting its Subgraphs service and partnering with [Ormi](https://ormilabs.com/), a next-generation subgraph indexer built for real-time production workloads, to support existing subgraphs. Your data and schemas remain unchanged—your only action is to swap the endpoint.
+
+- No new subgraphs after January 5, 2026
+- Service disabled on February 1, 2026
+- Ormi provides one free month (Feb 1 – March 1, 2026)
+
+For migration assistance, join the dedicated Telegram support group (check your email for the invitation).
+
+See the [Ormi–Chainstack transition guide](https://docs.ormilabs.com/subgraphs/tutorials/migrate-chainstack-subgraphs) for full details.
+</Warning>
 
 **TLDR:**
 
@@ -22,7 +37,7 @@ To set up a subgraph, complete the following steps:
 ## Add a subgraph
 
 <Note>
-Subgraphs are available starting from the [paid plans](https://chainstack.com/pricing/) with the [pay-as-you-go](/docs/manage-your-billing#manage-the-pay-as-you-go-setting) setting enabled.
+Subgraphs are available starting from the [paid plans](https://chainstack.com/pricing/) with the [extra usage](/docs/manage-your-billing#manage-the-extra-usage-setting) setting enabled.
 
 Subgraphs are billed at $0.10 per hour plus 20 request units per request.
 </Note>

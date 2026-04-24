@@ -1,6 +1,21 @@
 ---
-title: "Tracking token total supply over millions of blocks: A guide to creating a subgraph and deploying to Chainstack"
+title: Track token supply with subgraphs on Chainstack
+description: "Track ERC-20 token total supply across millions of blocks with subgraphs. Index mint/burn events, deploy to Chainstack, and query historical data efficiently."
 ---
+
+<Warning>
+**Chainstack Subgraphs is transitioning to Ormi**
+
+Chainstack is sunsetting its Subgraphs service and partnering with [Ormi](https://ormilabs.com/), a next-generation subgraph indexer built for real-time production workloads, to support existing subgraphs. Your data and schemas remain unchanged—your only action is to swap the endpoint.
+
+- No new subgraphs after January 5, 2026
+- Service disabled on February 1, 2026
+- Ormi provides one free month (Feb 1 – March 1, 2026)
+
+For migration assistance, join the dedicated Telegram support group (check your email for the invitation).
+
+See the [Ormi–Chainstack transition guide](https://docs.ormilabs.com/subgraphs/tutorials/migrate-chainstack-subgraphs) for full details.
+</Warning>
 
 **TLDR:**
 * Demonstrates how to track a token’s total supply by capturing mint and burn events (transfers from/to the zero address) via a subgraph.
@@ -239,15 +254,17 @@ Explore how you can interact with subgraphs by following our series:
 ### About the author
 
 <CardGroup>
-  <Card title="Kirill Balakhonov" img="/images/docs/u/44712112.png" >
-    <Icon icon="code"  iconType="solid"/>Product Lead @ Chainstack
+  <Card title="Kirill Balakhonov">
+    <img src="/images/docs/u/44712112.png" alt="Kirill Balakhonov" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/> BUIDLs on Ethereum and Graph protocol
+    <Icon icon="code" iconType="solid" /> Product Lead @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> BUIDLs on Ethereum and Graph protocol
+    <br /><Icon icon="laptop" iconType="solid" /> Majored in Data Science and Product Management
 
-    <Icon icon="laptop"  iconType="solid"/> Majored in Data Science and Product Management
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/balakhonoff)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/balakhonoff)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/kirill-balakhonov/)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/balakhonoff" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/balakhonoff" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/kirill-balakhonov/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

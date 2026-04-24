@@ -1,0 +1,211 @@
+---
+title: "Installation"
+description: Install Chainstack Self-Hosted using cpctl with auto-generated defaults for a streamlined deployment of your self-managed blockchain node infrastructure.
+---
+
+This guide walks through a standard installation with auto-generated passwords and default settings. For custom deployments — external databases, adjusted resource limits, or manual values — see [Advanced installation](/docs/self-hosted/advanced-installation).
+
+## Prerequisites
+
+Before installation, make sure you have a running Kubernetes cluster with kubectl, Helm, yq, and openssl installed. See [Environment setup](/docs/self-hosted/environment-setup) for instructions and a verification checklist.
+
+## Install
+
+<Steps>
+
+<Step title="Run the installer">
+
+Find your storage class name:
+
+```bash
+kubectl get storageclass
+```
+
+Common storage classes:
+
+- `local-path` — default k3s storage class (single-disk setups)
+- `topolvm-provisioner` — TopoLVM (multi-disk setups)
+- Cloud providers use their own defaults (`gp2`/`gp3` on AWS, `standard` on GCP, `managed-premium` on Azure)
+
+Run the installer with your version and storage class:
+
+```bash
+cpctl install -v VERSION -s STORAGE_CLASS_NAME
+```
+
+For example:
+
+```bash
+cpctl install -v v1.4.6 -s topolvm-provisioner
+```
+
+To get the installer, see [Download Chainstack Self-Hosted](/docs/self-hosted/download-installer).
+
+</Step>
+
+<Step title="Confirm auto-generation">
+
+When prompted, confirm that you want to auto-generate passwords:
+
+```text
+No values file provided. Generate passwords automatically? [y/N]: y
+```
+
+</Step>
+
+<Step title="Specify the URL for the backend">
+
+The installer will ask for the backend API URL. The Control Panel UI uses this URL to reach the deployments API.
+
+```text
+Enter CP UI backend API URL [http://cp-cp-deployments-api]:
+```
+
+- **Single server, accessing the UI from a browser** — enter your server's public IP: `http://<SERVER-PUBLIC-IP>`. You will need to expose the UI service on port 80 later (see [Post-installation](#expose-the-ui-service)).
+- **Default** — press Enter to keep `http://cp-cp-deployments-api`. This uses in-cluster DNS and only works if the UI is also accessed from inside the cluster.
+
+</Step>
+
+<Step title="Specify the workload namespace">
+
+The installer will ask for the Kubernetes namespace where blockchain node pods will run:
+
+```text
+Enter workload namespace for blockchain nodes [control-panel-deployments]:
+```
+
+Press Enter to accept the default `control-panel-deployments`. Change it only if you need a custom namespace layout.
+
+</Step>
+
+<Step title="Choose monitoring configuration">
+
+The installer will prompt you to configure the monitoring stack:
+
+```text
+Monitoring stack:
+  [1] Install monitoring stack (clean cluster, no existing VictoriaMetrics)
+  [2] Install monitoring using existing VictoriaMetrics operator
+  [3] Skip monitoring
+
+Choice [1]:
+```
+
+- **Option 1** — installs the full monitoring stack (Grafana, VictoriaMetrics, exporters). Use this for a clean cluster.
+- **Option 2** — reuses an existing VictoriaMetrics operator already deployed on the cluster.
+- **Option 3** — skips monitoring entirely.
+
+</Step>
+
+<Step title="Confirm and deploy">
+
+The installer will show a summary and ask you to confirm:
+
+```text
+==> About to install Control Panel
+  Version: v1.4.6
+  Namespace: control-panel
+  Workload Namespace: control-panel-deployments
+  Release: cp
+  Timeout: 15m0s
+
+Do you want to proceed? [y/N]: y
+```
+
+Confirm with `y`. The installer will then deploy the full stack (PostgreSQL, Temporal, Keycloak, Control Panel services).
+
+</Step>
+
+</Steps>
+
+### Credentials storage
+
+Generated credentials are saved to:
+
+```text
+~/.config/cp-suite/values/cp-control-panel-<timestamp>.yaml
+```
+
+<Warning>
+This file contains sensitive passwords and keys. Keep it secure and backed up.
+</Warning>
+
+## Post-installation
+
+### Monitoring stack
+
+v1.4.6+ includes an optional integrated observability stack (Grafana, VictoriaMetrics, and the Chainstack blockchain-node-exporter). During installation, you are prompted to install it, reuse an existing VictoriaMetrics operator, or skip it. See [Monitoring](/docs/self-hosted/monitoring) for access instructions and available dashboards.
+
+### Verify deployment status
+
+```bash
+cpctl status
+```
+
+Look for the healthy status at the bottom of the output:
+
+```text
+Overall Status: ✓ Healthy
+Reason: All components ready
+```
+
+Useful flags:
+
+| Flag | Description |
+|------|-------------|
+| `-w, --watch` | Watch status with continuous updates |
+| `--wide` | Show full resource names without truncation |
+| `--no-pods` | Hide pod details for a cleaner view |
+| `--unhealthy-only` | Show only unhealthy or degraded components |
+| `-o json` / `-o yaml` | Machine-readable output for automation |
+| `--log-file <path>` | Write the status output to a file |
+
+### Expose the UI service
+
+#### Option 1: LoadBalancer (recommended for production)
+
+```bash
+kubectl expose service cp-cp-ui --type=LoadBalancer --name=cp-ui-external -n control-panel
+```
+
+#### Option 2: NodePort
+
+```bash
+kubectl expose service cp-cp-ui --type=NodePort --name=cp-ui-nodeport -n control-panel
+```
+
+#### Option 3: Ingress
+
+Create an Ingress resource:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cp-ui-ingress
+  namespace: control-panel
+spec:
+  rules:
+  - host: cp.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cp-cp-ui
+            port:
+              number: 80
+```
+
+#### Option 4: Port forward (testing only)
+
+```bash
+kubectl port-forward svc/cp-cp-ui 8080:80 -n control-panel --address 0.0.0.0
+```
+
+## Next steps
+
+1. [First login](/docs/self-hosted/first-login) — First login and configuration
+2. [Deploying nodes](/docs/self-hosted/deploying-nodes) — Deploy your first blockchain node
+3. [Advanced installation](/docs/self-hosted/advanced-installation) — Customize your deployment

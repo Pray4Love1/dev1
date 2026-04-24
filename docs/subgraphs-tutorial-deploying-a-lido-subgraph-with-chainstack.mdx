@@ -1,6 +1,21 @@
 ---
 title: "Deploying a Lido subgraph with Chainstack"
+description: "Deploy Lido liquid staking subgraph with Chainstack. Index approval events from Ethereum smart contracts using The Graph protocol and GraphQL queries."
 ---
+
+<Warning>
+**Chainstack Subgraphs is transitioning to Ormi**
+
+Chainstack is sunsetting its Subgraphs service and partnering with [Ormi](https://ormilabs.com/), a next-generation subgraph indexer built for real-time production workloads, to support existing subgraphs. Your data and schemas remain unchanged—your only action is to swap the endpoint.
+
+- No new subgraphs after January 5, 2026
+- Service disabled on February 1, 2026
+- Ormi provides one free month (Feb 1 – March 1, 2026)
+
+For migration assistance, join the dedicated Telegram support group (check your email for the invitation).
+
+See the [Ormi–Chainstack transition guide](https://docs.ormilabs.com/subgraphs/tutorials/migrate-chainstack-subgraphs) for full details.
+</Warning>
 
 **TLDR:**
 * Lido is a liquid staking solution on Ethereum, and here we build a subgraph to track its approval events.
@@ -274,19 +289,18 @@ This tutorial guided you through creating a new subgraph project and deploying i
 
 ### About the author
 <CardGroup>
-<Card
-  title="Priyank Gupta"
-  img="/images/docs/56264430/224220454-0df06476-4ea8-4f40-8255-88f1cb4ab89d.png">
-<Icon icon="code"  iconType="solid"/>Developer Advocate @ Chainstack
+  <Card title="Priyank Gupta">
+    <img src="/images/docs/56264430/224220454-0df06476-4ea8-4f40-8255-88f1cb4ab89d.png" alt="Priyank Gupta" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-<Icon icon="screwdriver-wrench"  iconType="solid"/> BUIDLs on Ethereum, zkEVMs, The Graph protocol, and IPFS
+    <Icon icon="code" iconType="solid" /> Developer Advocate @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> BUIDLs on Ethereum, zkEVMs, and The Graph protocol
+    <br /><Icon icon="anchor" iconType="solid" /> Part-time Rust aficionado
 
-<Icon icon="anchor"  iconType="solid"/> Part-time Rust aficionado
-
-
-[<Icon icon="github"  iconType="brands"/>](https://github.com/Genesis3800)
-[<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/PriyankGupta03)
-[<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/priyank-gupta-0308/)
-</Card>
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/Genesis3800" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/PriyankGupta03" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/priyank-gupta-0308/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
+  </Card>
 </CardGroup>
 

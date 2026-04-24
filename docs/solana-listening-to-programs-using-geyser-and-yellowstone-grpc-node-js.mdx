@@ -1,6 +1,6 @@
 ---
-title: "Solana: Listening to programs using Geyser and Yellowstone gRPC in Node.js"
-description: "Learn how to use Geyser to stream Solana transactions over gRPC using the @triton-one/yellowstone-grpc client in Node.js."
+title: "Solana: Geyser and Yellowstone gRPC in Node.js"
+description: Stream real-time Solana transactions over gRPC using the Yellowstone client in Node.js with a Chainstack Geyser-enabled node for low-latency program data.
 ---
 
 ## Overview
@@ -9,9 +9,13 @@ This quick guide shows you how to:
 * Check the Geyser connection using the @triton-one/yellowstone-grpc client in Node.js
 * Stream the programs using the @triton-one/yellowstone-grpc client in Node.js
 
+<Info>
+Chainstack Solana nodes have Jito ShredStream enabled by default, providing faster and more reliable real-time data streaming. See [Yellowstone gRPC Geyser plugin](/docs/yellowstone-grpc-geyser-plugin) for details.
+</Info>
+
 ## Prerequisites
 
-* Get the [Yellowstone gRPC Geyser plugin](/docs/yellowstone-grpc-geyser-plugin).
+* Get a [reliable Solana RPC endpoint](https://chainstack.com/build-better-with-solana/) with the [Yellowstone gRPC Geyser plugin](/docs/yellowstone-grpc-geyser-plugin).
 * Install [Yellowstone Node.js gRPC client](https://www.npmjs.com/package/@triton-one/yellowstone-grpc).
 
 ## Implementation
@@ -200,18 +204,17 @@ This will stream the data from the Solana program IDs as provided in `DEX_PROGRA
 For a Python example, see [Solana: Listening to pump.fun token mint using Geyser](/docs/solana-listening-to-pumpfun-token-mint-using-geyser).
 
 <CardGroup>
-  <Card title="Ake" img="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Director of Developer Experience @ Chainstack
+  <Card title="Ake">
+    <img src="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg" alt="Ake" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/>  Talk to me all things Web3
+    <Icon icon="code" iconType="solid" /> Director of Developer Experience @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> Talk to me all things Web3
+    <br />20 years in technology | 8+ years in Web3 full time years experience
 
-    20 years in technology | 8+ years in Web3 full time years experience
-
-    Trusted advisor helping developers navigate the complexities of blockchain infrastructure
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/akegaviar/)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/akegaviar)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/ake/)
-    [<Icon icon="warpcast"  iconType="brands"/>](https://warpcast.com/ake)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/akegaviar/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/akegaviar" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/ake/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

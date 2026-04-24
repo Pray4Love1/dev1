@@ -1,6 +1,6 @@
 ---
 title: "Solana: Optimize your getBlock performance"
-description: "With examples in curl and Python"
+description: Optimize getBlock call performance on Solana by tuning maxSupportedTransactionVersion, encoding, and reward parameters on your Chainstack RPC node.
 ---
 
 **TLDR:**
@@ -11,12 +11,12 @@ description: "With examples in curl and Python"
 
 ## Main article
 
-Solana's [getBlock](/reference/solana-getblocks) RPC method is a fundamental method that can be tricky and will screw up your application performance in a jiffy if you are not paying attention.
+Solana's [getBlock](/reference/solana-getblock) RPC method is a fundamental method that can be tricky and will screw up your application performance in a jiffy if you are not paying attention.
 
 This guide provides a comprehensive overview of how to use `getBlock` efficiently, with practical examples in Python and curl.
 
 <Check>
-### Get you own node endpoint today
+### Get your own node endpoint today
 
   [Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
 
@@ -104,7 +104,8 @@ If you're only interested in transaction signatures (hashes), which is much ligh
       {
         "encoding": "json",
         "transactionDetails": "signatures",
-        "commitment": "finalized"
+        "commitment": "finalized",
+        "maxSupportedTransactionVersion": 0
       }
     ]
   }'
@@ -1445,18 +1446,17 @@ Remember these key takeaways:
 5. Handle errors gracefully with retries and backoff.
 
 <CardGroup>
-  <Card title="Ake" img="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Director of Developer Experiences @ Chainstack
+  <Card title="Ake">
+    <img src="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg" alt="Ake" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/>  Talk to me all things Web3
+    <Icon icon="code" iconType="solid" /> Director of Developer Experience @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> Talk to me all things Web3
+    <br />20 years in technology | 8+ years in Web3 full time years experience
 
-    20 years in technology | 8+ years in Web3 full time years experience
-
-    Trusted advisor helping developers navigate the complexities of blockchain infrastructure
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/akegaviar/)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/akegaviar)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/ake/)
-    [<Icon icon="warpcast"  iconType="brands"/>](https://warpcast.com/ake)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/akegaviar/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/akegaviar" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/ake/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

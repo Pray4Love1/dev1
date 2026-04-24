@@ -1,0 +1,109 @@
+---
+title: "Deploying nodes"
+description: Step-by-step guide to deploying blockchain nodes using Chainstack Self-Hosted, including protocol selection, client configuration, and network options.
+---
+
+This guide explains how to deploy blockchain nodes using Chainstack Self-Hosted.
+
+## Supported deployments
+
+| Protocol | Network | Client | Node type |
+|----------|---------|--------|-----------|
+| Ethereum | Mainnet | Reth + Prysm | Full node |
+| Ethereum | Sepolia | Reth + Prysm | Full node |
+| Ethereum | Hoodi | Reth + Prysm | Full node |
+
+<Note>
+Additional protocols and networks are on the roadmap. See the [FAQ](/docs/self-hosted/faq) for details.
+</Note>
+
+## Resource requirements
+
+Before deploying a node, ensure your infrastructure has sufficient resources available. See [System requirements](/docs/self-hosted/requirements) for detailed specifications.
+
+<Note>
+The Control Panel itself consumes system resources. When planning your infrastructure, account for both the Control Panel overhead and the resources required by the nodes you intend to deploy.
+</Note>
+
+## Deployment wizard
+
+<Steps>
+
+<Step title="Access the deployment wizard">
+
+1. Log in to the Control Panel
+2. Navigate to **Nodes**
+3. Click **Create node** or click the **+** button next to a preset
+
+</Step>
+
+<Step title="Select protocol and network">
+
+1. Select a protocol
+2. Select a network
+
+</Step>
+
+<Step title="Configure node settings">
+
+Select the deployment configuration preset.
+
+</Step>
+
+<Step title="Select sync method">
+
+Choose how the node bootstraps its chain data:
+
+- **Snapshot** — downloads a pre-built snapshot and starts from a recent block. Reduces time-to-live from days to hours or even minutes. Available when a snapshot exists for the selected network.
+- **Full sync** — syncs from genesis. Always available, but takes 2–5 days for Ethereum Mainnet.
+
+</Step>
+
+<Step title="Review and deploy">
+
+1. Review your configuration
+2. Click **Create node** to start the deployment
+
+<Frame>
+  <img src="/images/self-hosted/node-create.png" alt="Chainstack Self-Hosted node creation page" />
+</Frame>
+
+</Step>
+
+</Steps>
+
+## Deployment process
+
+After initiating deployment, the node goes through several phases:
+
+| Phase | Description | Duration |
+|-------|-------------|----------|
+| **Bootstrapping** | Resources are allocated, client software is configured | 2–5 minutes |
+| **Running** | Node is deployed and synchronizing with the network | Continuous |
+
+<Note>
+The node shows **Running** status once deployed. Initial blockchain sync happens in the background. With standard sync, this can take 2–5 days for Ethereum Mainnet. With snapshot-based bootstrapping, sync completes in hours.
+</Note>
+
+### Initial sync times
+
+Sync times depend on your hardware, network, and sync method:
+
+| Method | Approximate time |
+|--------|------------------|
+| Full sync from genesis | 2–5 days |
+| Snapshot-based bootstrapping | Minutes to Hours (network dependent) |
+
+See [System requirements](/docs/self-hosted/requirements) for specifications and a community-maintained list of hardware recommendations.
+
+## After deployment
+
+Once your node reaches **Running** status:
+
+1. Access the node details to view connection information
+2. Start using the node for your applications
+
+## Next steps
+
+- [Managing nodes](/docs/self-hosted/managing-nodes) — Learn about node operations
+- [Troubleshooting](/docs/self-hosted/troubleshooting) — Resolve deployment issues

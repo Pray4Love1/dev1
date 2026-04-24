@@ -3,6 +3,10 @@ title: getBlockTime | Solana
 openapi: /openapi/solana_node_api/getBlockTime.json POST /9de47db917d4f69168e3fed02217d15b
 ---
 
+<Note>
+**Per-method rate limit:** 500 RPS across all regions. **Archive data:** this method supports fetching historical data on [Global Nodes](/docs/global-elastic-node). See [Solana method limits](/docs/limits#solana-method-limits).
+</Note>
+
 The Solana `getBlockTime` method returns the estimated production time of a block.
 
 Note that you need to use the **slot number** as a parameter here, not the block number. See also [Understanding the difference between blocks and slots on Solana](/docs/understanding-the-difference-between-blocks-and-slots-on-solana).
@@ -10,7 +14,7 @@ Note that you need to use the **slot number** as a parameter here, not the block
 This method provides the Unix timestamp at which the block was produced. It is useful for tracking the timing of transactions and events on the blockchain.
 
 <Check>
-**Get you own node endpoint today**
+**Get your own node endpoint today**
 
 [Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
 

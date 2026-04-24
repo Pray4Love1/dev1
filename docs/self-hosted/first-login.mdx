@@ -1,0 +1,103 @@
+---
+title: "First login"
+description: Complete your first login to the Chainstack Self-Hosted Control Panel and configure initial settings including admin credentials and node deployment.
+---
+
+This guide walks you through your first login to Chainstack Self-Hosted and initial configuration.
+
+## First login
+
+### Finding your credentials
+
+During installation, the bootstrap credentials were generated and saved to a values file. Run the `yq` command from the installer output to retrieve your password:
+
+```bash
+yq '.cp-auth.env.CP_AUTH_BOOTSTRAP_PASSWORD' /root/.config/cp-suite/values/cp-control-panel-*.yaml
+```
+
+Your credentials:
+
+| Setting | Default value |
+|---------|---------------|
+| Username | `admin` |
+| Password | Auto-generated (in values file) |
+
+### Accessing the login page
+
+Open your browser and navigate to the Control Panel URL. If you haven't exposed the service yet, see [Expose the UI service](/docs/self-hosted/installation#expose-the-ui-service) for instructions. The URL depends on how you exposed the service:
+
+| Exposure method | URL |
+|-----------------|-----|
+| LoadBalancer | `http://<EXTERNAL-IP>` |
+| NodePort | `http://<NODE-IP>:<NODE-PORT>` |
+| Ingress | `http://your-configured-hostname` |
+| Port forward | `http://<SERVER-IP>:8080` |
+
+You'll see the Chainstack Self-Hosted login page:
+
+<Frame>
+  <img src="/images/self-hosted/login-page.png" alt="Chainstack Self-Hosted login page" />
+</Frame>
+
+### Logging in
+
+1. Enter `admin` in the **Username** field
+2. Enter the generated password from your values file in the **Password** field
+3. Click **Log in**
+
+## Initial configuration
+
+After your first login, we recommend completing these configuration steps.
+
+### Update admin profile
+
+For security, update your admin credentials immediately after first login.
+
+1. Click **Settings** in the left sidebar
+2. Under **Personal Information**, update the following:
+
+| Field | Recommendation |
+|-------|----------------|
+| Username | Change from default `admin` to a unique username |
+| Password | Set a strong password |
+
+<Frame>
+  <img src="/images/self-hosted/settings-page.png" alt="Chainstack Self-Hosted settings page" />
+</Frame>
+
+<Warning>
+After changing your password, the original password in the values file is no longer valid. Store your new credentials securely.
+</Warning>
+
+## Understanding the interface
+
+The Chainstack Self-Hosted interface provides access to all node management functions.
+
+### Main sections
+
+| Section | Purpose |
+|---------|---------|
+| **Nodes** | List, deploy, and manage blockchain nodes |
+| **Docs** | Link to Chainstack Self-Hosted documentation |
+| **Settings** | User profile and credentials |
+
+### Node status indicators
+
+When viewing nodes, you'll see status indicators:
+
+| Status | Description |
+|--------|-------------|
+| **Bootstrapping** | Node resources are being allocated and client software is being configured |
+| **Running** | Node is deployed and operational |
+| **Error** | Node encountered an issue |
+
+## Next steps
+
+With your admin account configured, you're ready to:
+
+1. [Deploy your first node](/docs/self-hosted/deploying-nodes) — Deploy a blockchain node
+2. [Manage nodes](/docs/self-hosted/managing-nodes) — Learn node operations and monitoring
+
+## Troubleshooting
+
+If you run into issues logging in or accessing the Control Panel, see the [Troubleshooting guide](/docs/self-hosted/troubleshooting#access-troubleshooting) for solutions to common problems including login failures, backend URL configuration, and credential issues.

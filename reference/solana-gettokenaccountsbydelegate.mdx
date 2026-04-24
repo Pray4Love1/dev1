@@ -1,0 +1,44 @@
+---
+title: getTokenAccountsByDelegate | Solana
+openapi: /openapi/solana_node_api/getTokenAccountsByDelegate.json POST /9de47db917d4f69168e3fed02217d15b
+---
+
+The Solana `getTokenAccountsByDelegate` method returns all SPL token accounts that have been delegated to a given account.
+
+This method is useful for querying which token accounts a specific address has been granted spending authority over via the SPL token `approve` instruction.
+
+<Check>
+**Get your own node endpoint today**
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Parameters
+
+1. `pubkey` (string, required) — the pubkey of the delegate account to query, as a base58 encoded string.
+2. `filter` (object, required) — filter results by token mint or program ID. One of:
+   * `mint` (string) — the pubkey of the specific token mint to limit accounts to.
+   * `programId` (string) — the pubkey of the Token program that owns the accounts (`TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` for SPL Token, `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` for Token-2022).
+3. `config` (object, optional) — configuration object containing:
+   * `encoding` (string) — encoding for account data. Values: `base58`, `base64`, `base64+zstd`, `jsonParsed`. Default: `base64`. `jsonParsed` returns parsed JSON data for known token account structures.
+   * `commitment` (string) — the commitment level.
+
+## Response
+
+The response includes a `result` object with:
+
+* `context` — an object containing `slot`.
+* `value` — an array of objects, each containing:
+  * `pubkey` (string) — the token account address.
+  * `account` — an object with:
+    * `lamports` (integer) — the account balance in lamports.
+    * `owner` (string) — the program that owns the account.
+    * `data` — the account data, encoded as requested. With `jsonParsed`, returns the parsed token account structure including `mint`, `owner`, `tokenAmount`, `delegate`, and `delegatedAmount`.
+    * `executable` (boolean) — whether the account is executable.
+    * `rentEpoch` (integer) — the epoch at which rent is next due.
+
+## Use case
+
+A common use case for `getTokenAccountsByDelegate` is in DeFi protocols that use token delegation. For example, a lending protocol can query all token accounts delegated to its program to display a user's approved spending limits, or an analytics tool can track delegation patterns across the network.

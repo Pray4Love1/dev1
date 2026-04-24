@@ -1,5 +1,6 @@
 ---
 title: "Authentication methods available on Chainstack"
+description: Choose the right Chainstack authentication method for your use case, comparing API key headers, URL-embedded keys, and bearer token approaches.
 ---
 
 **TLDR**
@@ -145,6 +146,52 @@ In this command, `-u YOUR_USER_NAME:YOUR_PASSWORD` includes your username and pa
   Keeping your API key and username/password secure is critical to prevent unauthorized access to your blockchain node.
 </Info>
 
+### gRPC access via x-token
+
+For protocols that support gRPC endpoints (such as [TRON](/docs/tron-tooling#grpc-api), [Sui](/docs/sui-tooling#grpc-api), and [Solana Geyser](/docs/yellowstone-grpc-geyser-plugin)), Chainstack uses x-token authentication. Unlike HTTPS endpoints where the auth token is part of the URL, gRPC endpoints require passing the token in the request metadata.
+
+Your gRPC credentials in the Chainstack console include:
+
+- **gRPC endpoint** — the host and port, e.g., `tron-mainnet.core.chainstack.com:443` or `sui-mainnet.core.chainstack.com:443`
+- **x-token** — your authentication token
+
+To authenticate gRPC requests, pass the x-token as metadata in your gRPC client:
+
+<CodeGroup>
+  ```bash grpcurl
+  grpcurl -H "x-token: YOUR_X_TOKEN" \
+    sui-mainnet.core.chainstack.com:443 \
+    list
+  ```
+
+  ```python Python
+  import grpc
+
+  channel = grpc.secure_channel(
+      'sui-mainnet.core.chainstack.com:443',
+      grpc.ssl_channel_credentials()
+  )
+
+  # Pass x-token in metadata for each call
+  metadata = [('x-token', 'YOUR_X_TOKEN')]
+  response = stub.YourMethod(request, metadata=metadata)
+  ```
+
+  ```javascript Node.js
+  const grpc = require('@grpc/grpc-js');
+
+  const metadata = new grpc.Metadata();
+  metadata.add('x-token', 'YOUR_X_TOKEN');
+
+  // Pass metadata when making calls
+  client.yourMethod(request, metadata, callback);
+  ```
+</CodeGroup>
+
+<Warning>
+  Keep your x-token secure. Anyone with your x-token can make requests to your gRPC endpoint.
+</Warning>
+
 ## Conclusion
 
 The realm of API authentication is vast, encompassing a variety of methods, each with its distinct security levels and complexities. From the simplest API Keys to the secure OAuth and JWT methods, the choice depends largely on your specific use case and the resources you have available for implementation.
@@ -158,15 +205,17 @@ Remember, the ultimate goal of API authentication is to facilitate secure access
 ### About the author
 
 <CardGroup>
-  <Card title="Davide Zambiasi" img="/images/docs/profile_images/1533079085001363457/1VvXp1m0_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Developer Advocate @ Chainstack
+  <Card title="Davide Zambiasi">
+    <img src="/images/docs/profile_images/1533079085001363457/1VvXp1m0_400x400.jpg" alt="Davide Zambiasi" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/> BUIDLs on EVM, The Graph protocol, and Starknet
+    <Icon icon="code" iconType="solid" /> Developer Advocate @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> BUIDLs on EVM, The Graph protocol, and Starknet
+    <br /><Icon icon="laptop" iconType="solid" /> Helping people understand Web3 and blockchain development
 
-    <Icon icon="laptop"  iconType="solid"/> Helping people understand Web3 and blockchain development
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/soos3d)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/web3Dav3)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/davide-zambiasi/)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/soos3d" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/web3Dav3" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/davide-zambiasi/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

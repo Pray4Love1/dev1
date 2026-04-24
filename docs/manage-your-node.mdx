@@ -1,5 +1,6 @@
 ---
 title: "Manage your nodes"
+description: View node credentials, access endpoints, monitor sync progress, configure add-ons, and manage your Chainstack blockchain nodes from the console.
 ---
 
 ## Add a node to a network
@@ -40,6 +41,22 @@ Examples of your WSS node connection endpoints:
   wss://user-name:pass-word-pass-word-pass-word@ws-nd-123-456-789.p2pify.com
   ```
 </CodeGroup>
+
+Examples of your gRPC node connection endpoints (available for select protocols like Sui and Solana):
+
+<CodeGroup>
+  ```sh gRPC endpoint
+  sui-mainnet.core.chainstack.com:443
+  ```
+
+  ```sh x-token
+  b2a7442099925280a3184aef2cedd3a1
+  ```
+</CodeGroup>
+
+<Info>
+  gRPC endpoints use x-token authentication passed in the request metadata, rather than URL-based auth tokens. See [authentication methods](/docs/authentication-methods-for-different-scenarios) for details.
+</Info>
 
 ## View node requests metrics
 

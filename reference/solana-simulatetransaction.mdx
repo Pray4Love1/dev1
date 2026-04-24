@@ -18,19 +18,41 @@ You can sign up with your GitHub, X, Google, or Microsoft account.
 
 ## Parameters
 
-1. `transaction` (string) - A base64 encoded string representing the transaction to simulate.
-2. `config` (object, optional) - Configuration object containing the following optional fields:
-   * `encoding` (string) - Encoding used for the transaction data. Default is "base64".
+1. `transaction` (string, required) — a base64 or base58 encoded string representing the transaction to simulate.
+2. `config` (object, optional) — configuration object containing:
+   * `encoding` (string) — encoding used for the transaction data. Values: `base58` (deprecated), `base64` (recommended). Default: `base58`.
+   * `commitment` (string) — the bank state to simulate against. Default: `finalized`.
+   * `sigVerify` (boolean) — when `true`, verify transaction signatures. Default: `false`. Conflicts with `replaceRecentBlockhash`.
+   * `replaceRecentBlockhash` (boolean) — when `true`, replace the transaction's recent blockhash with the most recent blockhash from the bank. Default: `false`. Useful for simulating transactions with expired blockhashes. Conflicts with `sigVerify`.
+   * `minContextSlot` (integer) — the minimum slot at which the request can be evaluated.
+   * `innerInstructions` (boolean) — when `true`, include inner instructions in the response. Default: `false`.
+   * `accounts` (object) — configuration for returning post-simulation account state:
+     * `addresses` (array of strings) — array of account addresses to return.
+     * `encoding` (string) — encoding for the returned account data. Values: `base64`, `base64+zstd`, `jsonParsed`.
 
 ## Response
 
-The response includes a `result` object with details about the simulated transaction execution, including:
+The response includes a `result` object with:
 
-* `err` - If the transaction simulation was successful, this field will be null. Otherwise, it will contain an error message.
-* `logs` - An array of log messages the transaction produced during simulation.
-* `accounts` - An array of account information after the simulation.
-* `unitsConsumed` - The number of compute units consumed by the transaction.
+* `err` — null if the simulation was successful, otherwise a transaction error object.
+* `logs` (array of strings) — log messages the transaction produced during simulation.
+* `unitsConsumed` (u64) — number of compute units consumed by the transaction.
+* `accounts` — an array of account objects (or null) corresponding to the `accounts.addresses` request field.
+* `returnData` — data returned by the last program that invoked `sol_set_return_data`. Contains `programId` (string) and `data` (`[base64_string, "base64"]` tuple).
+* `innerInstructions` — array of inner instruction sets (when `innerInstructions: true` in the request). Each set contains `index` (the instruction index) and `instructions` (array of inner instruction objects).
+* `fee` (u64, nullable) — the transaction fee in lamports.
+* `preBalances` (array of u64) — account balances before the simulation.
+* `postBalances` (array of u64) — account balances after the simulation.
+* `preTokenBalances` — token balances before the simulation.
+* `postTokenBalances` — token balances after the simulation.
+* `loadedAddresses` — addresses loaded from address lookup tables. Contains `writable` (array of strings) and `readonly` (array of strings).
+* `replacementBlockhash` — present when `replaceRecentBlockhash: true`. Contains `blockhash` (string) and `lastValidBlockHeight` (u64).
 
 ## Use case
 
-A common use case for `simulateTransaction` is to estimate the cost and effects of a transaction before actually sending it. This can help developers ensure their transactions will execute as expected and avoid unnecessary fees from failed transactions.
+A common use case for `simulateTransaction` is to estimate compute units, predict fee costs, and verify that a transaction will succeed before submitting it via [sendTransaction](/reference/solana-sendtransaction). This is especially useful for:
+
+* Estimating the exact compute units needed to set via `ComputeBudgetProgram.setComputeUnitLimit`
+* Debugging failed transactions by inspecting `logs` and `innerInstructions`
+* Previewing token balance changes with `preTokenBalances` and `postTokenBalances`
+* Checking post-execution account state via the `accounts` config

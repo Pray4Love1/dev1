@@ -1,6 +1,6 @@
 ---
 title: "Solana: How to build actions and blinks"
-description: "YouTube embed"
+description: "Build Solana Actions and Blinks with Next.js and Chainstack. Create transaction APIs, Meteora Dynamic Vault integration, and shareable blockchain interactions."
 ---
 
 <Frame>
@@ -124,6 +124,7 @@ Please see the example below, where we define two buttons with their respective 
       links: {
         actions: [
           {
+            type: "transaction",
             label: "Deposit SOL",
             href: `${pathActions}?action=deposit&amount={amount}`,
             parameters: [
@@ -134,6 +135,7 @@ Please see the example below, where we define two buttons with their respective 
             ],
           },
           {
+            type: "transaction",
             label: "Withdraw SOL",
             href: `${pathActions}?action=withdraw&amount={amount}`,
             parameters: [
@@ -370,6 +372,7 @@ The complete `route.ts` includes both GET and POST handlers, along with the vali
       links: {
         actions: [
           {
+            type: "transaction",
             label: "Deposit SOL",
             href: `${pathActions}?action=deposit&amount={amount}`,
             parameters: [
@@ -380,6 +383,7 @@ The complete `route.ts` includes both GET and POST handlers, along with the vali
             ],
           },
           {
+            type: "transaction",
             label: "Withdraw SOL",
             href: `${pathActions}?action=withdraw&amount={amount}`,
             parameters: [
@@ -575,13 +579,16 @@ In this tutorial, we explored the implementation of Solana Actions and Blinks to
 
 
 <CardGroup>
-  <Card title="Anton Sauchyk" img="/images/docs/profile_images/1817926677730664448/3nNn0T2p_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Developer Advocate @ Chainstack
+  <Card title="Anton Sauchyk">
+    <img src="/images/docs/profile_images/1817926677730664448/3nNn0T2p_400x400.jpg" alt="Anton Sauchyk" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="laptop"  iconType="solid"/>Multiple years of software development and Web3 expertise. Creator of the open-source Compare Dashboard for RPC provider performance benchmarking. Core contributor to the DevEx team’s pump.fun trading bot. Author of technical tutorials on EVM blockchains, Solana, TON and Subgraphs.
+    <Icon icon="code" iconType="solid" /> Developer Advocate @ Chainstack
+    <br /><Icon icon="laptop" iconType="solid" /> Multiple years of software development and Web3 expertise
 
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/smypmsa)
-    [<Icon icon="twitter"  iconType="brands"/>](https://x.com/sensuniama)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/anton-sauchyk/)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/smypmsa" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://x.com/sensuniama" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/anton-sauchyk/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

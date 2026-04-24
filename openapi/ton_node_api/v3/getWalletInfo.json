@@ -11,7 +11,7 @@
     }
   ],
   "paths": {
-    "/wallet": {
+    "/api/v3/walletInformation": {
       "get": {
         "summary": "Get Wallet Information",
         "description": "Retrieves information about a specific wallet on the TON blockchain",

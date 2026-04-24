@@ -1,6 +1,6 @@
 ---
 title: "Debug & Trace APIs"
-description: "Debug and trace APIs allow Web3 developers to monitor, trace, and debug the activities that occur within blockchain networks."
+description: Use debug and trace APIs on Chainstack to monitor, inspect, and replay EVM transactions for smart contract debugging and performance analysis.
 ---
 
 ## Overview
@@ -28,7 +28,7 @@ To enable debug and trace APIs on your dedicated Ethereum node, you must have a 
 * With a node running on Geth, only `debug_*`namespace is exposed.
 * With a node running on Erigon, both `debug_*` and `trace_*`namespaces are exposed.
 
-Learn how to [deploy your dedicated Ethereum node run on different clients](/reference/enable-debug-trace-apis-for-your-ethereum-node#dedicated-ethereum-node) with debug and trace APIs enabled.
+Learn how to [deploy your dedicated Ethereum node run on different clients](/reference/enable-debug-trace-apis-for-your-ethereum-node) with debug and trace APIs enabled.
 
 For the full list of the available debug and trace API methods, see:
 
@@ -90,20 +90,29 @@ To enable debug and trace APIs on your dedicated Arbitrum node, you must have a 
 
 #### Available methods
 
-Both and dedicated Arbitrum nodes with debug and trace APIs enabled will expose the `debug_*` and `arbtrace_*` methods.
+Both global elastic and dedicated Arbitrum nodes with debug and trace APIs enabled will expose the `debug_*` and `arbtrace_*` methods.
 
-Blocks older than 22,207,815th were added to the chain before [Nitro migration](https://developer.arbitrum.io/migration/dapp_migration) and cannot be queried with Geth methods. Starting from block 22,207,815, Arbitrum migrated to Nitro which made Geth `debug_*` methods available for newer blocks.
+Arbitrum uses the Nitro client (a Geth fork) and does not support the `trace_*` namespace. Instead, use the `arbtrace_*` methods for pre-Nitro blocks and `debug_*` methods for post-Nitro blocks.
 
-Use the following methods for calling on blocks prior to 22,207,815:
+Blocks older than 22,207,815 were added to the chain before the [Nitro migration](https://developer.arbitrum.io/migration/dapp_migration) and cannot be queried with Geth `debug_*` methods. Starting from block 22,207,815, Arbitrum migrated to Nitro which made Geth `debug_*` methods available for newer blocks.
 
+Use the following `arbtrace_*` methods for calling on blocks prior to 22,207,815:
+
+* arbtrace\_block
 * arbtrace\_call
 * arbtrace\_callMany
+* arbtrace\_filter
+* arbtrace\_get
 * arbtrace\_replayBlockTransactions
 * arbtrace\_replayTransaction
 * arbtrace\_transaction
-* arbtrace\_get
-* arbtrace\_block
-* arbtrace\_filter
+
+The following `debug_*` methods are available for blocks from 22,207,815 onward:
+
+* debug\_traceBlockByHash
+* debug\_traceBlockByNumber
+* debug\_traceTransaction
+* debug\_traceCall
 
 For the full list of the available `debug_*` namespace methods, see [Geth documentation](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
 
@@ -137,9 +146,79 @@ To enable debug and trace APIs on your Fantom node, you must deploy a dedicated 
 
 For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
 
-### Harmony
 
-To enable debug and trace APIs on your Harmony node, you must deploy a dedicated node in the full or archive mode. The node will expose the `debug_*` API methods. A dedicated debug and trace node for Harmony is available starting from a [paid plan](https://chainstack.com/pricing/).
+
+### Hyperliquid
+
+To enable debug and trace APIs on your Hyperliquid HyperEVM node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node](/docs/global-elastic-node).
+
+Debug and trace APIs are available on both mainnet and testnet. The HyperEVM supports standard Ethereum debug and trace APIs, allowing you to debug smart contracts and trace transactions on Hyperliquid's EVM-compatible layer.
+
+For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
+
+### Sonic
+
+To enable debug and trace APIs on your Sonic node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node.](/docs/global-elastic-node)
+
+For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
+
+### Unichain
+
+To enable debug and trace APIs on your Unichain node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node.](/docs/global-elastic-node)
+
+For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
+
+### Berachain
+
+To enable debug and trace APIs on your Berachain node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node.](/docs/global-elastic-node)
+
+For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
+
+### Linea
+
+To enable debug and trace APIs on your Linea node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node.](/docs/global-elastic-node)
+
+For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
+
+### Mantle
+
+To enable debug and trace APIs on your Mantle node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node.](/docs/global-elastic-node)
+
+For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
+
+### Zora
+
+To enable debug and trace APIs on your Zora node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node.](/docs/global-elastic-node)
+
+For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
+
+### Blast
+
+To enable debug and trace APIs on your Blast node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node.](/docs/global-elastic-node)
+
+For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
+
+### Moonbeam
+
+To enable debug and trace APIs on your Moonbeam node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node.](/docs/global-elastic-node)
+
+For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
+
+### Celo
+
+To enable debug and trace APIs on your Celo node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node.](/docs/global-elastic-node)
+
+For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
+
+### Kaia
+
+To enable debug and trace APIs on your Kaia node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node.](/docs/global-elastic-node)
+
+For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
+
+### opBNB
+
+To enable debug and trace APIs on your opBNB node, you must have a [paid plan](https://chainstack.com/pricing/) and deploy the node as a [global node.](/docs/global-elastic-node)
 
 For the full list of the available debug and trace API methods, see [Debug namespace](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug).
 

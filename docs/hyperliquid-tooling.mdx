@@ -1,7 +1,9 @@
 ---
 title: "Hyperliquid tooling"
-description: "Tools and SDKs for building applications on Hyperliquid"
+description: Set up the Hyperliquid Python SDK, configure API credentials, and connect your development environment to Hyperliquid through Chainstack RPC nodes.
 ---
+
+Get started with a [reliable Hyperliquid RPC endpoint](https://chainstack.com/build-better-with-hyperliquid/) to use the tools below.
 
 ## Python SDK
 
@@ -27,6 +29,51 @@ Use the SDK to interact with your Chainstack Hyperliquid node:
   ```
 </CodeGroup>
 
+## TypeScript SDK
+
+For TypeScript/JavaScript developers, the community-maintained [@nktkas/hyperliquid](https://github.com/nktkas/hyperliquid) SDK provides comprehensive API coverage with full type safety.
+
+Install the SDK:
+
+```bash
+npm install @nktkas/hyperliquid
+```
+
+Use the SDK:
+
+<CodeGroup>
+```typescript TypeScript
+import { InfoClient, ExchangeClient, HttpTransport } from "@nktkas/hyperliquid";
+import { PrivateKeySigner } from "@nktkas/hyperliquid/signing";
+
+// Query market data (no authentication required)
+const info = new InfoClient({ transport: new HttpTransport() });
+const meta = await info.meta();
+console.log(meta);
+
+// Trading operations (requires authentication)
+const signer = new PrivateKeySigner({ privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" });
+const exchange = new ExchangeClient({
+  transport: new HttpTransport(),
+  wallet: signer
+});
+
+const result = await exchange.order({
+  orders: [{
+    a: 0,  // Asset index (0 = BTC)
+    b: true,  // is_buy
+    p: "50000",  // price
+    s: "0.001",  // size
+    r: false,  // reduce_only
+    t: { limit: { tif: "Gtc" } }
+  }],
+  grouping: "na"
+});
+```
+</CodeGroup>
+
+The SDK also supports viem and ethers wallet integrations. See the [debugging signature errors guide](/docs/hyperliquid-debugging-signature-errors) for advanced integration patterns.
+
 ## Rust SDK
 
 For Rust developers, use the [Hyperliquid Rust SDK](https://github.com/hyperliquid-dex/hyperliquid-rust-sdk) to build high-performance trading applications.
@@ -48,6 +95,10 @@ Use your Chainstack Hyperliquid REST endpoint to access market data and execute 
 Interact with the HyperEVM of Hyperliquid through your Hyperliquid node using the JSON-RPC API. See the complete [Hyperliquid API reference](/reference/hyperliquid-getting-started) for all available endpoints.
 
 Use your Chainstack Hyperliquid JSON-RPC endpoint to retrieve the EVM chain state of Hyperliquid.
+
+### Debug & Trace APIs
+
+Hyperliquid HyperEVM supports debug and trace APIs on both mainnet and testnet for smart contract debugging and transaction tracing. To enable these APIs, deploy a [global node](/docs/global-elastic-node) with debug & trace APIs enabled. See [Debug & Trace APIs](/docs/debug-and-trace-apis#hyperliquid) for more information.
 
 ## Hyperliquid system transactions
 

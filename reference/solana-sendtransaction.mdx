@@ -1,0 +1,55 @@
+---
+title: sendTransaction | Solana
+openapi: /openapi/solana_node_api/sendTransaction.json POST /9de47db917d4f69168e3fed02217d15b
+---
+
+The Solana `sendTransaction` method submits a fully signed transaction to the cluster for processing.
+
+The transaction must be signed and serialized before calling this method. On success, the method returns the first transaction signature embedded in the transaction (base58 encoded), which serves as the transaction identifier.
+
+<Note>
+**Warp transactions**
+
+Chainstack Solana nodes support [Warp transactions](/docs/warp-transactions) for faster transaction landing. Warp transactions route your `sendTransaction` calls through the bloXroute relay network for optimized propagation to the current leader. See [Solana Trader Nodes](/docs/solana-trader-nodes) for details.
+</Note>
+
+<Check>
+**Get your own node endpoint today**
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Parameters
+
+1. `transaction` (string, required) — fully signed transaction, as a base64 or base58 encoded string.
+2. `config` (object, optional) — configuration object containing the following fields:
+   * `encoding` (string) — encoding used for the transaction data. Values: `base58` (slow, deprecated), `base64` (recommended). Default: `base58`.
+   * `skipPreflight` (bool) — when `true`, skip the preflight transaction checks (signature verification and simulation). Default: `false`. When `true`, the `preflightCommitment` field is ignored and the node internally uses `processed`.
+   * `preflightCommitment` (string) — commitment level to use for the preflight simulation. Default: `finalized`. Ignored when `skipPreflight` is `true`.
+   * `maxRetries` (integer) — maximum number of times the RPC node retries sending the transaction to the leader. If not provided, the node retries the transaction until it is finalized or the blockhash expires.
+   * `minContextSlot` (integer) — the minimum slot at which the request can be evaluated.
+
+The preflight checks performed when `skipPreflight` is `false`:
+1. **Signature verification** — confirms that all required signatures are present and valid.
+2. **Transaction simulation** — runs the transaction against the bank state at the `preflightCommitment` level. If simulation fails, the response returns the same error structure as [simulateTransaction](/reference/solana-simulatetransaction), including `err`, `logs`, and `unitsConsumed`.
+
+## Response
+
+* `result` (string) — the first transaction signature embedded in the transaction, as a base58 encoded string. Use this signature with [getSignatureStatuses](/reference/solana-getsignaturestatuses) to confirm the transaction.
+
+If the transaction fails preflight checks, the response contains an `error` object with simulation failure details including `err`, `logs`, and `unitsConsumed`.
+
+## Use case
+
+The `sendTransaction` method is the primary way to submit transactions to the Solana network. Common patterns include:
+
+1. **Build, sign, send** — construct a transaction with instructions, sign it with the appropriate keypairs, serialize it, and submit via `sendTransaction`.
+2. **Preflight simulation** — by default, the node runs [simulateTransaction](/reference/solana-simulatetransaction) before forwarding to the leader. Set `skipPreflight: true` to bypass this check when you need maximum speed (e.g., arbitrage, sniping).
+3. **Confirmation polling** — after sending, poll [getSignatureStatuses](/reference/solana-getsignaturestatuses) until the transaction reaches the desired commitment level.
+4. **Retry with fresh blockhash** — if the transaction expires (`TransactionExpiredBlockheightExceededError`), rebuild with a fresh [getLatestBlockhash](/reference/solana-getlatestblockhash) and resend. See [How to handle the transaction expiry error](/docs/solana-how-to-handle-the-transaction-expiry-error).
+
+<Warning>
+The **Try it** example uses a pre-built transaction with an expired blockhash. It will return a blockhash-related error. To test with a live transaction, serialize and sign your own transaction, then paste the base64-encoded string into the first parameter.
+</Warning>

@@ -1,0 +1,75 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "TON API",
+    "version": "3.0.0",
+    "description": "API for interacting with The Open Network (TON) blockchain"
+  },
+  "servers": [
+    {
+      "url": "https://ton-mainnet.core.chainstack.com/f2a2411bce1e54a2658f2710cd7969c3/api/v3"
+    }
+  ],
+  "paths": {
+    "/metadata": {
+      "get": {
+        "summary": "Get Metadata",
+        "description": "Query address metadata including names and labels",
+        "operationId": "getMetadata",
+        "tags": [
+          "Accounts"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "query",
+            "description": "Address to get metadata for",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "address": {
+                      "type": "string",
+                      "description": "The queried address"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Human-readable name for the address"
+                    },
+                    "is_scam": {
+                      "type": "boolean",
+                      "description": "Whether the address is flagged as scam"
+                    },
+                    "icon": {
+                      "type": "string",
+                      "description": "URL to the address icon"
+                    },
+                    "is_wallet": {
+                      "type": "boolean",
+                      "description": "Whether the address is a wallet contract"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-readme": {
+    "explorer-enabled": true,
+    "proxy-enabled": true
+  }
+}

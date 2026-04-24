@@ -1,5 +1,6 @@
 ---
-title: "Solana: Creating a token and vesting the token in your program"
+title: "Solana: Create a token and vesting program"
+description: Mint a custom SPL token on Solana devnet, deploy the Bonfida vesting program, and create a token vesting schedule with timed release using Chainstack.
 ---
 
 **TLDR:**
@@ -22,7 +23,7 @@ In the process, you will gain first-hand knowledge of accounts, the default and 
 
 ## Prerequisites
 
-* [Chainstack account](https://console.chainstack.com/) to deploy a Solana node.
+* [Chainstack account](https://console.chainstack.com/) to deploy a [reliable Solana RPC endpoint](https://chainstack.com/build-better-with-solana/).
 * [Rust](https://www.rust-lang.org/tools/install) to work with the vesting program.
 * [Solana tool suite](https://docs.solana.com/cli/install-solana-cli-tools) to create accounts and interact with the network.
 * [SPL token CLI](https://spl.solana.com/token#command-line-utility) to interact with the default [token program](https://spl.solana.com/token).
@@ -53,7 +54,7 @@ See [Create a project](/docs/manage-your-project#create-a-project).
 
 ### Join the devnet
 
-See Join a [public network](/docs/manage-your-networks#join-a-public-network).
+See Join a [public network](/docs/manage-your-networks).
 
 ### Get your Solana node access and credentials
 
@@ -348,18 +349,17 @@ This tutorial uses the devnet, however, the exact same instructions and sequence
 ### About the author
 
 <CardGroup>
-  <Card title="Ake" img="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Director of Developer Experience @ Chainstack
+  <Card title="Ake">
+    <img src="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg" alt="Ake" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/>  Talk to me all things Web3
+    <Icon icon="code" iconType="solid" /> Director of Developer Experience @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> Talk to me all things Web3
+    <br />20 years in technology | 8+ years in Web3 full time years experience
 
-    20 years in technology | 8+ years in Web3 full time years experience
-
-    Trusted advisor helping developers navigate the complexities of blockchain infrastructure
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/akegaviar/)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/akegaviar)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/ake/)
-    [<Icon icon="warpcast"  iconType="brands"/>](https://warpcast.com/ake)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/akegaviar/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/akegaviar" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/ake/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

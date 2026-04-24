@@ -1,5 +1,6 @@
 ---
-title: "Optimism: Bridge ether from Ethereum L1 to Optimism L2 using the Optimism JavaScript SDK"
+title: "Optimism: Bridge ETH from L1 to L2 with the JS SDK"
+description: Bridge ETH from Ethereum L1 to Optimism L2 using the Optimism JavaScript SDK and Chainstack RPC endpoints for cross-chain asset transfer scripting.
 ---
 
 **TLDR:**
@@ -30,7 +31,7 @@ Learn more about the Optimism network in [Optimism blockchain – Ethereum Layer
 
 ## Prerequisites
 
-* [Chainstack account](https://console.chainstack.com/user/login) to deploy nodes on the Ethereum Sepolia testnet and Optimism Sepolia testnet.
+* [Chainstack account](https://console.chainstack.com/user/login) to deploy a [reliable Optimism RPC endpoint](https://chainstack.com/build-better-with-optimism/).
 * Node.js ^16.17.0 — [install node.js](https://nodejs.org/en/download/).
 
 ## Dependencies
@@ -61,7 +62,7 @@ See [Create a project](/docs/manage-your-project#create-a-project).
 
 ### Join the Ethereum Sepolia testnet and Optimism Goerli testnet
 
-See [Join a public network](/docs/manage-your-networks#join-a-public-network).
+See [Join a public network](/docs/manage-your-networks).
 
 ### Get endpoints for your Ethereum Sepolia testnet and Optimism Sepolia testnet
 
@@ -422,15 +423,17 @@ This tutorial guided you through creating a basic L1 => L2 bridge using the Opti
 ### About the author
 
 <CardGroup>
-  <Card title="Davide Zambiasi" img="/images/docs/profile_images/1533079085001363457/1VvXp1m0_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Developer Advocate @ Chainstack
+  <Card title="Davide Zambiasi">
+    <img src="/images/docs/profile_images/1533079085001363457/1VvXp1m0_400x400.jpg" alt="Davide Zambiasi" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/> BUIDLs on EVM, The Graph protocol, and Starknet
+    <Icon icon="code" iconType="solid" /> Developer Advocate @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> BUIDLs on EVM, The Graph protocol, and Starknet
+    <br /><Icon icon="laptop" iconType="solid" /> Helping people understand Web3 and blockchain development
 
-    <Icon icon="laptop"  iconType="solid"/> Helping people understand Web3 and blockchain development
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/soos3d)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/web3Dav3)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/davide-zambiasi/)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/soos3d" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/web3Dav3" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/davide-zambiasi/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

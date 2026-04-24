@@ -1,5 +1,6 @@
 ---
 title: "Solana: Analyzing adjacent transactions for priority fees"
+description: Analyze adjacent transactions in Solana blocks to calculate optimal priority fees based on actual compute unit prices paid by neighboring transactions.
 ---
 
 **TLDR:**
@@ -17,10 +18,13 @@ What the script in this tutorial does is look for transactions adjacent to the o
 ## Prerequisites
 
 <Check>
-### Get you own node endpoint today
-  [Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+### Get your own reliable Solana RPC endpoint today
 
-  You can sign up with your GitHub, X, Google, or Microsoft account.
+Deploy a [reliable Solana RPC endpoint](https://chainstack.com/build-better-with-solana/) to get started.
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
 </Check>
 
 * Python 3.7+
@@ -48,7 +52,7 @@ The script itself:
   ```python Python
   from solana.rpc.api import Client
   from solana.rpc.commitment import Commitment
-  from solana.transaction import Signature
+  from solders.signature import Signature
   import base58
   import json
   from typing import List, Optional, Tuple
@@ -268,18 +272,17 @@ Understanding transaction priority fees and their impact on execution is crucial
 For more Solana development tools and guides, see [Mastering Solana](/docs/solana-development).
 
 <CardGroup>
-  <Card title="Ake" img="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Director of Developer Experience @ Chainstack
+  <Card title="Ake">
+    <img src="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg" alt="Ake" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/>  Talk to me all things Web3
+    <Icon icon="code" iconType="solid" /> Director of Developer Experience @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> Talk to me all things Web3
+    <br />20 years in technology | 8+ years in Web3 full time years experience
 
-    20 years in technology | 8+ years in Web3 full time years experience
-
-    Trusted advisor helping developers navigate the complexities of blockchain infrastructure
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/akegaviar/)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/akegaviar)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/ake/)
-    [<Icon icon="warpcast"  iconType="brands"/>](https://warpcast.com/ake)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/akegaviar/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/akegaviar" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/ake/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

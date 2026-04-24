@@ -1,15 +1,19 @@
 ---
 title: "blockSubscribe | Solana"
-description: "The `blockSubscribe` method in Solana allows developers to receive real-time notifications about new blocks on the Solana blockchain. This subscription-based method provides updates whenever new blocks are added to the chain."
+description: "Subscribe to real-time Solana block updates with blockSubscribe. Receive WebSocket notifications whenever new blocks are confirmed on the network."
 ---
 
 <Check>
-  ### Get you own node endpoint today
+  ### Get your own node endpoint today
 
   [Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
 
   You can sign up with your GitHub, X, Google, or Microsoft account.
 </Check>
+
+<Warning>
+  **Important:** The `blockSubscribe` method is marked as unstable and has known limitations with busy programs. Common issues include connection errors (1006, 1009) and skipped data. For production use and comprehensive block tracking, especially with high-traffic programs like Raydium or pump.fun, [Geyser is the recommended alternative](https://github.com/anza-xyz/agave/issues/3879#issuecomment-2519700883). Learn more about [Geyser in our documentation](/docs/yellowstone-grpc-geyser-plugin).
+</Warning>
 
 ## Parameters
 

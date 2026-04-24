@@ -1,5 +1,6 @@
 ---
 title: "Solana: Listening to pump.fun migrations to Raydium"
+description: Track pump.fun token migrations to Raydium liquidity pools in real time using Solana WebSocket subscriptions and log parsing through Chainstack nodes.
 ---
 
 **TLDR:**
@@ -17,8 +18,8 @@ See also [Solana: Listening to pump.fun token mint using only logsSubscribe](/do
 This article is an add-on for two scripts:
 
 <CardGroup>
-  <Card title="check_boding_curve_status.py" href="https://github.com/chainstacklabs/pump-fun-bot/blob/main/learning-examples/check_boding_curve_status.py" icon="angle-right" horizontal />
-  <Card title="listen_to_raydium_migration.py" href="https://github.com/chainstacklabs/pump-fun-bot/blob/main/learning-examples/listen_to_raydium_migration.py" icon="angle-right" horizontal />
+  <Card title="get_bonding_curve_status.py" href="https://github.com/chainstacklabs/pump-fun-bot/blob/main/learning-examples/bonding-curve-progress/get_bonding_curve_status.py" icon="angle-right" horizontal />
+  <Card title="listen_logsubscribe.py" href="https://github.com/chainstacklabs/pump-fun-bot/blob/main/learning-examples/listen-migrations/listen_logsubscribe.py" icon="angle-right" horizontal />
 </CardGroup>
 
 This guide shows you how to track the lifecycle of pump.fun tokens from their initial bonding curve state through migration to Raydium using Python scripts.
@@ -26,7 +27,9 @@ This guide shows you how to track the lifecycle of pump.fun tokens from their in
 ## Prerequisites
 
 <Check>
-  ### Get you own node endpoint today
+  ### Get your own reliable Solana RPC endpoint today
+
+  Deploy a [reliable Solana RPC endpoint](https://chainstack.com/build-better-with-solana/) to get started.
 
   [Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
 
@@ -57,18 +60,18 @@ After migration, trading moves from the bonding curve mechanism to Raydium's tra
 
 This guide covers two essential scripts for tracking this migration process:
 
-1. `check_boding_curve_status.py` - Checks if a token is still on the bonding curve or ready for migration
-2. `listen_to_raydium_migration.py` - Monitors real-time migrations to Raydium
+1. `get_bonding_curve_status.py` — checks if a token is still on the bonding curve or ready for migration
+2. `listen_logsubscribe.py` — monitors real-time migrations to Raydium
 
 ### Checking bonding curve status
 
-The `check_boding_curve_status.py` script lets you check if a token's bonding curve is still active or has completed and is ready for Raydium migration.
+The `get_bonding_curve_status.py` script lets you check if a token's bonding curve is still active or has completed and is ready for Raydium migration.
 
 #### Usage
 
 <CodeGroup>
   ```shell Shell
-  python check_boding_curve_status.py TOKEN_ADDRESS
+  python get_bonding_curve_status.py TOKEN_ADDRESS
   ```
 </CodeGroup>
 
@@ -114,7 +117,7 @@ For a completed bonding curve:
 
 ### Monitoring Raydium migrations
 
-The `listen_to_raydium_migration.py` script uses WebSocket subscriptions to monitor real-time migrations of tokens from pump.fun to Raydium DEX.
+The `listen_logsubscribe.py` script uses WebSocket subscriptions to monitor real-time migrations of tokens from pump.fun to Raydium DEX.
 
 The pump.fun migration account is [39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg](https://solscan.io/account/39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg).
 
@@ -122,11 +125,15 @@ This is the account that—on the token bonding curve completion status—adds t
 
 Our script uses the [blockSubscribe | Solana](/reference/blocksubscribe-solana) method over WebSocket by listening to all the transactions involving the migration account `39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg`, then decodes the transactions using the Raydium IDL `raydium_amm_idl.json` that's also in our [pump-fun-bot repository](https://github.com/chainstacklabs/pump-fun-bot) . After decoding the data, it prints what we actually need—the address of the pump.fun token that migrated and the new liquidity pool address for this token on Raydium.
 
+<Note>
+  **Important for production:** The `blockSubscribe` method can experience stability issues with high-traffic programs like Raydium, including connection errors and data skipping. For production monitoring of Raydium migrations, consider using [Geyser as recommended by the Solana team](https://github.com/anza-xyz/agave/issues/3879#issuecomment-2519700883) for more reliable streaming. Learn more about [Yellowstone Geyser](/docs/yellowstone-grpc-geyser-plugin).
+</Note>
+
 #### Usage
 
 <CodeGroup>
   ```shell Shell
-  python listen_to_raydium_migration.py
+  python listen_logsubscribe.py
   ```
 </CodeGroup>
 
@@ -163,18 +170,17 @@ For the complete trading bot implementation, see [Creating a pump.fun trading bo
 
 
 <CardGroup>
-  <Card title="Ake" img="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Director of Developer Experience @ Chainstack
+  <Card title="Ake">
+    <img src="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg" alt="Ake" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/>  Talk to me all things Web3
+    <Icon icon="code" iconType="solid" /> Director of Developer Experience @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> Talk to me all things Web3
+    <br />20 years in technology | 8+ years in Web3 full time years experience
 
-    20 years in technology | 8+ years in Web3 full time years experience
-
-    Trusted advisor helping developers navigate the complexities of blockchain infrastructure
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/akegaviar/)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/akegaviar)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/ake/)
-    [<Icon icon="warpcast"  iconType="brands"/>](https://warpcast.com/ake)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/akegaviar/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/akegaviar" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/ake/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

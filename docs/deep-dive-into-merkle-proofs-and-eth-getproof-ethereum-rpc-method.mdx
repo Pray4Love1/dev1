@@ -1,5 +1,6 @@
 ---
 title: "Deep dive into Merkle proofs and eth_getProof"
+description: Understand Merkle proofs and use eth_getProof to verify Ethereum account state and storage slots without trusting a full node for data authenticity.
 ---
 
 **TLDR**
@@ -254,7 +255,7 @@ You can sign up and get an Ethereum RPC endpoint for free:
 
 <CardGroup>
   <Card title="Sign up with Chainstack" href="https://console.chainstack.com/user/account/create" icon="angle-right" horizontal />
-  <Card title="Deploy a node" href="/docs/manage-your-networks#join-a-public-network" icon="angle-right" horizontal />
+  <Card title="Deploy a node" href="/docs/manage-your-networks" icon="angle-right" horizontal />
   <Card title="View node access and credentials" href="/docs/manage-your-node#view-node-access-and-credentials" icon="angle-right" horizontal />
 </CardGroup>
 
@@ -339,13 +340,16 @@ When using `eth_getProof`, remember to provide the correct block number, account
 ### About the author
 
 <CardGroup>
-  <Card title="Wuzhong Zhu" img="/images/docs/profile_images/1548860905064017921/xCKUgveS_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Developer Advocate @ Chainstack
+  <Card title="Wuzhong Zhu">
+    <img src="/images/docs/profile_images/1548860905064017921/xCKUgveS_400x400.jpg" alt="Wuzhong Zhu" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/> BUIDLs on Ethereum, zkEVMs, The Graph protocol, and IPFS
+    <Icon icon="code" iconType="solid" /> Developer Advocate @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> BUIDLs on Ethereum, zkEVMs, and The Graph protocol
 
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/wuzhongzhu)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/wuzhong-zhu-44563589/)
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/wuzhong-zhu)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://twitter.com/wuzhongzhu" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/wuzhong-zhu-44563589/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+      <a href="https://github.com/wuzhong-zhu" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

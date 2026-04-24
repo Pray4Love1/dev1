@@ -1,0 +1,79 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "TON API",
+    "version": "3.0.0",
+    "description": "API for interacting with The Open Network (TON) blockchain"
+  },
+  "servers": [
+    {
+      "url": "https://ton-mainnet.core.chainstack.com/f2a2411bce1e54a2658f2710cd7969c3/api/v3"
+    }
+  ],
+  "paths": {
+    "/addressInformation": {
+      "get": {
+        "summary": "Get Address Information",
+        "description": "Get smart contract details including balance, code, and data",
+        "operationId": "getAddressInformation",
+        "tags": [
+          "Accounts"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "query",
+            "description": "Account address to query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "balance": {
+                      "type": "string",
+                      "description": "Account balance in nanotons"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Smart contract code in base64"
+                    },
+                    "data": {
+                      "type": "string",
+                      "description": "Smart contract data in base64"
+                    },
+                    "last_transaction_lt": {
+                      "type": "string",
+                      "description": "Last transaction logical time"
+                    },
+                    "last_transaction_hash": {
+                      "type": "string",
+                      "description": "Last transaction hash"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Account status"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-readme": {
+    "explorer-enabled": true,
+    "proxy-enabled": true
+  }
+}

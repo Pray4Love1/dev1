@@ -1,5 +1,6 @@
 ---
 title: "zkSync Era: Develop a custom paymaster contract"
+description: "Build custom paymaster on zkSync Era with account abstraction. Sponsor user transactions using ERC-20 tokens instead of ETH with Hardhat and TypeScript."
 ---
 
 **TLDR:**
@@ -36,7 +37,7 @@ zkSync Era introduces the concept of smart accounts and paymasters, designed to 
 
 ## Prerequisites
 
-* [Chainstack account](https://console.chainstack.com/) to deploy a zkSync Era Testnet node and get funds from the faucet
+* [Chainstack account](https://console.chainstack.com/) to deploy a [reliable zkSync Era RPC endpoint](https://chainstack.com/build-better-with-zksync-era/)
 * [node.js](https://nodejs.org/en/download) at least V16 on your machine
 * [yarn installed](https://classic.yarnpkg.com/lang/en/docs/install/) on your machine
 
@@ -70,7 +71,7 @@ See [Create a project](/docs/manage-your-project#create-a-project).
 
 ### Join the zkSync Era Sepolia Testnet
 
-See [Join a public network](/docs/manage-your-networks#join-a-public-network).
+See [Join a public network](/docs/manage-your-networks).
 
 ### Get your zkSync Era Sepolia Testnet node endpoint
 
@@ -945,15 +946,17 @@ This tutorial guided you through setting up Hardhat to work with zkSync Era and 
 ### About the author
 
 <CardGroup>
-  <Card title="Davide Zambiasi" img="/images/docs/profile_images/1533079085001363457/1VvXp1m0_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Developer Advocate @ Chainstack
+  <Card title="Davide Zambiasi">
+    <img src="/images/docs/profile_images/1533079085001363457/1VvXp1m0_400x400.jpg" alt="Davide Zambiasi" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/> BUIDLs on EVM, The Graph protocol, and Starknet
+    <Icon icon="code" iconType="solid" /> Developer Advocate @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> BUIDLs on EVM, The Graph protocol, and Starknet
+    <br /><Icon icon="laptop" iconType="solid" /> Helping people understand Web3 and blockchain development
 
-    <Icon icon="laptop"  iconType="solid"/> Helping people understand Web3 and blockchain development
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/soos3d)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/web3Dav3)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/davide-zambiasi/)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/soos3d" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/web3Dav3" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/davide-zambiasi/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

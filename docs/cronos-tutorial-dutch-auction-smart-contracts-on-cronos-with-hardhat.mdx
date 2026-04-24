@@ -1,5 +1,6 @@
 ---
 title: "Cronos: Dutch auction smart contract with Hardhat"
+description: Deploy a Dutch auction NFT contract on Cronos testnet using Hardhat where the price decreases over time until a buyer mints at an acceptable price.
 ---
 
 **TLDR:**
@@ -22,7 +23,7 @@ Specifically, in this tutorial, you will:
 
 ## Prerequisites
 
-* [Chainstack account](https://console.chainstack.com/) to deploy a Cronos testnet node.
+* [Chainstack account](https://console.chainstack.com/) to deploy a [reliable Cronos RPC endpoint](https://chainstack.com/build-better-with-cronos/).
 * [Hardhat](https://hardhat.org/docs) to compile and deploy the contract.
 * [MetaMask](https://docs.metamask.io/guide/) to interact with the contract through your Chainstack node.
 
@@ -54,7 +55,7 @@ See [Create a project](/docs/manage-your-project#create-a-project).
 
 ### Join the Cronos testnet
 
-See [Join a public network](/docs/manage-your-networks#join-a-public-network).
+See [Join a public network](/docs/manage-your-networks).
 
 ### Get your Cronos node endpoint
 
@@ -301,18 +302,17 @@ This tutorial uses testnet, however, the exact same instructions and sequence wo
 ### About the author
 
 <CardGroup>
-<Card
-  title="Priyank Gupta"
-  img="/images/docs/56264430/224220454-0df06476-4ea8-4f40-8255-88f1cb4ab89d.png">
-<Icon icon="code"  iconType="solid"/>Developer Advocate @ Chainstack
+  <Card title="Priyank Gupta">
+    <img src="/images/docs/56264430/224220454-0df06476-4ea8-4f40-8255-88f1cb4ab89d.png" alt="Priyank Gupta" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-<Icon icon="screwdriver-wrench"  iconType="solid"/> BUIDLs on Ethereum, zkEVMs, The Graph protocol, and IPFS
+    <Icon icon="code" iconType="solid" /> Developer Advocate @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> BUIDLs on Ethereum, zkEVMs, and The Graph protocol
+    <br /><Icon icon="anchor" iconType="solid" /> Part-time Rust aficionado
 
-<Icon icon="anchor"  iconType="solid"/> Part-time Rust aficionado
-
-
-[<Icon icon="github"  iconType="brands"/>](https://github.com/Genesis3800)
-[<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/PriyankGupta03)
-[<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/priyank-gupta-0308/)
-</Card>
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/Genesis3800" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/PriyankGupta03" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/priyank-gupta-0308/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
+  </Card>
 </CardGroup>

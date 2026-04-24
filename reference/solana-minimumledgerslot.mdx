@@ -1,0 +1,28 @@
+---
+title: minimumLedgerSlot | Solana
+openapi: /openapi/solana_node_api/minimumLedgerSlot.json POST /9de47db917d4f69168e3fed02217d15b
+---
+
+The Solana `minimumLedgerSlot` method returns the lowest slot that the node has information about in its ledger.
+
+As validators prune old ledger data, this value increases over time. This method is useful for determining how far back in history a node can serve data.
+
+<Check>
+**Get your own node endpoint today**
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Parameters
+
+This method does not require any parameters.
+
+## Response
+
+* `result` (integer) — the minimum ledger slot number available on the node.
+
+## Use case
+
+A common use case for `minimumLedgerSlot` is in determining whether a node can serve historical data for a given slot. Before requesting block or transaction data for a specific slot, you can check `minimumLedgerSlot` to verify the data is still available. This is especially relevant when deciding between a full node and an [archive node](/docs/solana-archive-nodes-the-backbone-of-solanas-data-availability-and-developer-tooling).

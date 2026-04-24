@@ -11,7 +11,7 @@
     }
   ],
   "paths": {
-    "/account": {
+    "/api/v3/addressInformation": {
       "get": {
         "summary": "Get Account Information",
         "description": "Retrieves information about a specific account on the TON blockchain",

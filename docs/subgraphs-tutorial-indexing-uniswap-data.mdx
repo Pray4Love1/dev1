@@ -1,6 +1,21 @@
 ---
 title: "Indexing Uniswap data with subgraphs"
+description: "Index Uniswap V3 pools and tokens with subgraphs. Track PoolCreated events, fetch ERC-20 details, and query DeFi data using GraphQL and Chainstack."
 ---
+
+<Warning>
+**Chainstack Subgraphs is transitioning to Ormi**
+
+Chainstack is sunsetting its Subgraphs service and partnering with [Ormi](https://ormilabs.com/), a next-generation subgraph indexer built for real-time production workloads, to support existing subgraphs. Your data and schemas remain unchanged—your only action is to swap the endpoint.
+
+- No new subgraphs after January 5, 2026
+- Service disabled on February 1, 2026
+- Ormi provides one free month (Feb 1 – March 1, 2026)
+
+For migration assistance, join the dedicated Telegram support group (check your email for the invitation).
+
+See the [Ormi–Chainstack transition guide](https://docs.ormilabs.com/subgraphs/tutorials/migrate-chainstack-subgraphs) for full details.
+</Warning>
 
 **TLDR:**
 * Demonstrates creating a subgraph to track new Uniswap V3 pools and their ERC-20 tokens.
@@ -598,18 +613,17 @@ And with that, we have reached the end of our subgraph tutorial. The article was
 ### About the author
 
 <CardGroup>
-<Card
-  title="Sethu Raman Omanakuttan"
-  img="/images/docs/u/44131280.png"
->
-<Icon icon="code"  iconType="solid"/>Developer Advocate @ Chainstack
+  <Card title="Sethu Raman Omanakuttan">
+    <img src="/images/docs/u/44131280.png" alt="Sethu Raman Omanakuttan" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-<Icon icon="screwdriver-wrench"  iconType="solid"/> BUIDLs on Ethereum, NEAR , Graph Protocol and Oasis.
-<Icon icon="laptop"  iconType="solid"/> Majored in computer science and technology.
+    <Icon icon="code" iconType="solid" /> Developer Advocate @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> BUIDLs on Ethereum, NEAR, Graph Protocol and Oasis
+    <br /><Icon icon="laptop" iconType="solid" /> Majored in computer science and technology
 
-
-[<Icon icon="github"  iconType="brands"/>](https://github.com/SethuRamanOmanakuttan)
-[<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/Sethu_Raman_O)
-[<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/sethuraman-omanakuttan)
-</Card>
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/SethuRamanOmanakuttan" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/Sethu_Raman_O" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/sethuraman-omanakuttan" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
+  </Card>
 </CardGroup>

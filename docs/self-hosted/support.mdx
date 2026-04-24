@@ -1,0 +1,84 @@
+---
+title: "Support and feedback"
+description: Get technical support and submit feedback for Chainstack Self-Hosted to receive direct engineering help and influence the product roadmap.
+---
+
+Learn how to get help and provide feedback on Chainstack Self-Hosted.
+
+## Getting help
+
+### Documentation
+
+Start with the documentation for answers to common questions:
+
+- [Quick start guide](/docs/self-hosted/quick-start) — Installation walkthrough
+- [Troubleshooting](/docs/self-hosted/troubleshooting) — Common issues and solutions
+- [FAQ](/docs/self-hosted/faq) — Frequently asked questions
+
+### Technical support
+
+For technical issues and questions:
+
+**Chainstack Support Center**
+
+[https://support.chainstack.com/hc/en-us](https://support.chainstack.com/hc/en-us)
+
+When contacting support, please include:
+
+```bash
+./cpctl status > diagnostic.txt
+kubectl get events -n control-panel >> diagnostic.txt
+kubectl get events -n control-panel-deployments >> diagnostic.txt
+timestamp=\$(date +%s)
+touch debug-\$timestamp.txt
+debug=debug-\$timestamp.txt
+for pod in \$(kubectl get pods -n control-panel -o name); do
+  echo "=== \$pod ===" >> \$debug
+  kubectl logs \$pod -n control-panel --since=1h 2>/dev/null >> \$debug
+done
+for pod in \$(kubectl get pods -n control-panel-deployments -o name); do
+  echo "=== \$pod ===" >> \$debug
+  kubectl logs \$pod -n control-panel-deployments --since=1h 2>/dev/null >> \$debug
+done
+```
+
+1. **Description of the issue**
+   - What you were trying to do
+   - What happened
+   - What you expected to happen
+   - Steps to reproduce
+
+### Community resources
+
+Additional resources for blockchain node operators:
+
+- Ethereum documentation: [ethereum.org/developers](https://ethereum.org/developers)
+- Reth documentation: [reth.rs](https://reth.rs/)
+- Prysm documentation: [docs.prylabs.network](https://docs.prylabs.network/)
+
+## Providing feedback
+
+### Feature requests
+
+Have an idea for a new feature? We want to hear it!
+
+**Submit:** [Chainstack Feedback](https://ideas.chainstack.com/en?b=6968ecf76c93cb94db0422c8)
+
+When submitting feature requests, please include:
+
+- Description of the feature
+- Your use case / why it's valuable
+- Any specific requirements or constraints
+
+### General feedback
+
+We welcome all feedback — positive or constructive:
+
+**Submit:** [Chainstack Feedback](https://ideas.chainstack.com/en?b=6968ecf76c93cb94db0422c8)
+
+## Contact summary
+
+| Purpose | Contact |
+|---------|---------|
+| Technical support | [support.chainstack.com](https://support.chainstack.com/hc/en-us) |
+| Feature requests | [Chainstack Feedback](https://ideas.chainstack.com/en?b=6968ecf76c93cb94db0422c8) |

@@ -1,0 +1,206 @@
+---
+title: 'eth_subscribe monadNewHeads | Monad'
+description: "Subscribe to Monad block headers at the Proposed state via WebSocket — earlier than standard newHeads — with blockId and commitState for lifecycle tracking."
+---
+
+Monad API method that streams new block headers as soon as a block reaches the `Proposed` state in Monad's consensus lifecycle — typically about one second earlier than standard `eth_subscribe("newHeads")`, which currently fires at the `Voted` state. Each notification includes two Monad-specific fields, `blockId` and `commitState`, that let you follow a block through every stage of its lifecycle: `Proposed` → `Voted` → `Finalized` → `Verified`.
+
+<Note>
+  Monad's real-time data behavior, including the commit state at which standard `newHeads` fires, is still evolving. For the authoritative spec, see the Monad [WebSocket guide](https://docs.monad.xyz/reference/websockets) and [block states](https://docs.monad.xyz/monad-arch/consensus/block-states) documentation.
+</Note>
+
+This subscription is unique to Monad. It is available over WebSocket on Chainstack [Global Nodes](/docs/global-elastic-node) for Monad Mainnet and Testnet.
+
+<Check>
+  ### Get your own node endpoint today
+
+  [Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+  You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Parameters
+
+* `string` — the subscription type, `monadNewHeads` in this case.
+
+## Response
+
+* `subscription` — the subscription ID.
+
+Each notification delivers a block object with the following fields.
+
+Monad-specific fields:
+
+* `blockId` — a 32-byte identifier unique to this specific block proposal. A proposal with the same `number` but a different `blockId` is a different proposal. Use this to deduplicate per-proposal when the same block number is emitted multiple times as its `commitState` advances.
+* `commitState` — the current state of the block in Monad's commit lifecycle. One of `Proposed`, `Voted`, `Finalized`, or `Verified`.
+
+Standard block header fields:
+
+* `number` — the block number, encoded as hexadecimal.
+* `hash` — the block hash.
+* `parentHash` — hash of the previous block.
+* `sha3Uncles` — hash of the list of uncles included in the block. Always `0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347` on Monad.
+* `logsBloom` — the bloom filter for the logs of the block.
+* `transactionsRoot` — the root of the transaction trie of the block.
+* `stateRoot` — the root of the final state trie of the block.
+* `receiptsRoot` — the root of the receipts trie of the block.
+* `miner` — the address of the block proposer.
+* `difficulty` — always `0x0` on Monad (proof-of-stake-based consensus).
+* `totalDifficulty` — always `0x0` on Monad.
+* `extraData` — arbitrary data field set by the proposer.
+* `size` — the size of this block in bytes, encoded as hexadecimal.
+* `gasLimit` — the maximum gas allowed in this block, encoded as hexadecimal.
+* `gasUsed` — the total gas used by all transactions in this block, encoded as hexadecimal.
+* `timestamp` — the Unix timestamp for when the block was proposed, encoded as hexadecimal.
+* `mixHash` — the previous RANDAO value.
+* `nonce` — always `0x0000000000000000` on Monad.
+* `baseFeePerGas` — EIP-1559 base fee per gas, encoded as hexadecimal.
+* `withdrawalsRoot` — Merkle root of withdrawals.
+* `blobGasUsed` — cumulative blob gas used, EIP-4844.
+* `excessBlobGas` — excess blob gas.
+* `parentBeaconBlockRoot` — parent beacon block root.
+* `requestsHash` — EIP-7685 execution requests hash.
+
+<Note>
+  The same block number will appear multiple times as its `commitState` advances — typically once each for `Proposed`, `Voted`, `Finalized`, and `Verified`. Blocks may also skip intermediate states and go directly to `Finalized` when consensus outpaces execution. Failed proposals are abandoned implicitly — there is no explicit failure notification.
+
+  Deduplicate by `blockId` if you need one event per unique proposal, or by the pair `(number, commitState)` if you care about lifecycle transitions.
+</Note>
+
+## `eth_subscribe("monadNewHeads")` code examples
+
+<Info>
+  Note that subscriptions require a WebSocket connection and [WebSocket cat](https://www.npmjs.com/package/wscat) for you to use this method in the console.
+
+  Install WebSocket cat with:
+
+  `npm install -g wscat`
+</Info>
+
+<CodeGroup>
+  ```shell wscat
+  $ wscat -c YOUR_CHAINSTACK_WSS_ENDPOINT
+  # Wait for the connection to be established
+
+  Connected (press CTRL+C to quit)
+
+  > {"id":1,"jsonrpc":"2.0","method":"eth_subscribe","params":["monadNewHeads"]}
+  ```
+
+  ```javascript javascript
+  const WebSocket = require('ws');
+
+  const CHAINSTACK_WSS_ENDPOINT = 'YOUR_CHAINSTACK_WSS_ENDPOINT';
+  const ws = new WebSocket(CHAINSTACK_WSS_ENDPOINT);
+
+  ws.on('open', () => {
+    ws.send(JSON.stringify({
+      id: 1,
+      jsonrpc: '2.0',
+      method: 'eth_subscribe',
+      params: ['monadNewHeads'],
+    }));
+  });
+
+  ws.on('message', (raw) => {
+    const msg = JSON.parse(raw);
+    if (msg.method === 'eth_subscription') {
+      const { blockId, commitState, number, hash } = msg.params.result;
+      console.log(`block=${number}  state=${commitState}  hash=${hash}  blockId=${blockId}`);
+    } else {
+      console.log(msg);
+    }
+  });
+  ```
+
+  ```python python
+  import asyncio
+  import json
+  import websockets
+
+  CHAINSTACK_WSS_ENDPOINT = "YOUR_CHAINSTACK_WSS_ENDPOINT"
+
+  async def subscribe():
+      async with websockets.connect(CHAINSTACK_WSS_ENDPOINT) as ws:
+          await ws.send(json.dumps({
+              "id": 1,
+              "jsonrpc": "2.0",
+              "method": "eth_subscribe",
+              "params": ["monadNewHeads"],
+          }))
+          async for raw in ws:
+              msg = json.loads(raw)
+              if msg.get("method") == "eth_subscription":
+                  r = msg["params"]["result"]
+                  print(f"block={r['number']}  state={r['commitState']}  hash={r['hash']}  blockId={r['blockId']}")
+              else:
+                  print(msg)
+
+  asyncio.run(subscribe())
+  ```
+</CodeGroup>
+
+This streams block headers for every commit-state transition of every block. Expect multiple notifications per block number.
+
+### Example notification
+
+```json
+{
+  "blockId": "0x45d814bd2a2968958f4a263ee60a0249f7cf75d76fd40cf28d6a668c75c6cb84",
+  "commitState": "Finalized",
+  "number": "0x410f29a",
+  "hash": "0x07a72a548006cf054bbebd6d29f51834999d2cea730ea7440aadd451cee2d8af",
+  "parentHash": "0x6b3565b4512824c5fc138d43c5ae0db2ff1635973da995e1cd602c396d190d01",
+  "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+  "miner": "0xbb1b431317544b82d51667ed53ea4393ed0f4b4b",
+  "stateRoot": "0x73003ddffde347679b114eb028c02328e0ac4f9ed8c273033446541a4f05ce24",
+  "transactionsRoot": "0x83d36a0f080a900eba7eccfde9347592dbe04d874ba9e5f5925af8e35fa7e3a1",
+  "receiptsRoot": "0xc83a64961a643f325a5a45eb3b70df4617d50baf32211bca55fff65b82cf39fc",
+  "logsBloom": "0x44008040...",
+  "difficulty": "0x0",
+  "totalDifficulty": "0x0",
+  "gasLimit": "0xbebc200",
+  "gasUsed": "0x37263f",
+  "timestamp": "0x69df29e8",
+  "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "mixHash": "0xcc55c398cccb23f95d1d75ccc91578950d983651a1bb013d9edf9f2deb0f3815",
+  "nonce": "0x0000000000000000",
+  "baseFeePerGas": "0x174876e800",
+  "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+  "blobGasUsed": "0x0",
+  "excessBlobGas": "0x0",
+  "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "requestsHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "size": "0x2f0"
+}
+```
+
+A typical stream for a single block, in order of arrival, might look like:
+
+```
+block=0x410f29c  state=Proposed   blockId=0x72a76ada...
+block=0x410f29c  state=Voted      blockId=0x72a76ada...
+block=0x410f29c  state=Finalized  blockId=0x72a76ada...
+block=0x410f29c  state=Verified   blockId=0x72a76ada...
+```
+
+Send `eth_unsubscribe` with the returned subscription ID to close the stream.
+
+## `monadNewHeads` vs `newHeads`
+
+Both subscription types work on Chainstack Monad nodes. Pick based on what you optimize for.
+
+* `eth_subscribe("newHeads")` — fires once per block, at the `Voted` state. Closest to the semantics of Ethereum's `newHeads`. Use this when you want one event per canonical block and do not need visibility into earlier states.
+* `eth_subscribe("monadNewHeads")` — fires at every state transition, starting at `Proposed`. Gives you block data roughly one second earlier than `newHeads`, plus the `blockId` and `commitState` fields. Use this when latency matters or when you need to react to speculative state.
+
+For broader event-monitoring patterns on Monad — including `eth_subscribe("logs", {...})` and HTTP polling alternatives — see [Monad: Monitoring events and transactions](/docs/monad-tutorial-event-monitoring).
+
+## Use case
+
+A practical use case for `eth_subscribe("monadNewHeads")` is any latency-sensitive application that benefits from acting on speculatively-executed block state before it reaches the `Voted` state:
+
+* Trading and MEV. Searchers and takers can observe new blocks at the `Proposed` state to trigger off-chain logic roughly one second sooner than they could with `newHeads`, while still reconciling against later states (`Voted`, `Finalized`) for correctness.
+
+* Pre-confirmation UX. Wallets, explorers, and dashboards can surface "tentative" block data immediately on `Proposed`, then upgrade the display as the same `blockId` advances through `Voted` → `Finalized`, giving users end-to-end visibility into Monad's commit lifecycle.
+
+* Infrastructure and consensus monitoring. Node operators and analytics platforms can track the exact cadence and distribution of block states to detect execution lag, skipped intermediate states, or abandoned proposals in real time.

@@ -1,5 +1,6 @@
 ---
 title: "Ethereum Dencun: Rundown with examples"
+description: Explore Ethereum Dencun upgrade features including EIP-4844 blob transactions, transient storage opcodes, and new precompile changes with code examples.
 ---
 
 **TLDR:**
@@ -110,7 +111,7 @@ Now let's do an [eth\_getBlockByNumber | Ethereum](/reference/ethereum-getblockb
 
 Use the `parentBeaconBlockRoot` to identify that it's [slot 4548475](https://sepolia.beaconcha.in/slot/0xbb7ef08755c4f394fd2e2cb325ac2228aa933d8a581e8e19e26f31f610ab118b) on the consensus layer. Since it's parent, we need the next slot: [slot 4548476](https://sepolia.beaconcha.in/slot/4548476).
 
-Use the slot number in a [Retrieve blob sidecar](/reference/getblobsidecarbyslot) call to the consensus layer:
+Use the slot number in a [Retrieve blobs by block ID](/reference/getblobsbyblockid) call to the consensus layer:
 
 <CodeGroup>
   ```shell Shell
@@ -179,18 +180,17 @@ Track the [eth\_blobBaseFee](https://github.com/ethereum/go-ethereum/pull/29140)
 
 ### About the author
 <CardGroup>
-  <Card title="Ake" img="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Director of Developer Experience @ Chainstack
+  <Card title="Ake">
+    <img src="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg" alt="Ake" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/>  Talk to me all things Web3
+    <Icon icon="code" iconType="solid" /> Director of Developer Experience @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> Talk to me all things Web3
+    <br />20 years in technology | 8+ years in Web3 full time years experience
 
-    20 years in technology | 8+ years in Web3 full time years experience
-
-    Trusted advisor helping developers navigate the complexities of blockchain infrastructure
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/akegaviar/)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/akegaviar)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/ake/)
-    [<Icon icon="warpcast"  iconType="brands"/>](https://warpcast.com/ake)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/akegaviar/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/akegaviar" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/ake/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

@@ -1,103 +1,212 @@
 ---
 title: "Solana tooling"
+description: "Modern Solana development tooling for Chainstack nodes — Solana CLI, @solana/kit, Anchor 1.0, LiteSVM, Surfpool, solana-py, and more."
 ---
 
-## Solana tool suite
-1. Install the Solana tool suite. See [Install the Solana Tool Suite](https://docs.solana.com/cli/install-solana-cli-tools).
+<Note>
+Chainstack Solana nodes have Jito ShredStream enabled by default, providing enhanced performance for the [Yellowstone gRPC Geyser plugin](/docs/yellowstone-grpc-geyser-plugin).
+</Note>
 
-2. Connect the Solana tool suite to the Chainstack-deployed Solana node:
+Get started with a [reliable Solana RPC endpoint](https://chainstack.com/build-better-with-solana/), then plug it into the tools below.
 
-   ```shell
-   solana config set --url YOUR_CHAINSTACK_ENDPOINT
-   ```
+## Solana CLI (Agave)
 
-   where YOUR_CHAINSTACK_ENDPOINT is your node HTTPS or WSS endpoint protected either with the key or password. See [node access details](/docs/manage-your-node#view-node-access-and-credentials).
+The Solana Foundation one-liner installs the full toolkit — Agave CLI, Anchor, and Surfpool — in a single step.
 
-3. Run the Solana [client commands](https://docs.solana.com/cli).
+```bash
+curl --proto '=https' --tlsv1.2 -sSfL https://solana-install.solana.workers.dev | bash
+```
 
-   Example to get the block height:
+Alternatively, install just the Agave CLI:
 
-   ```shell
-   $ solana block-height
-   106318062
-   ```
+```bash
+sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+```
+
 <Info>
-  ### WebSocket endpoint
-
-  When you set the HTTPS endpoint with `solana config set`, the tool will also set a computed WebSocket endpoint, which is incorrect.
-
-  To use WebSocket, you must set the WebSocket explicitly with `--ws`.
-
-  Example:
-
-  Shell
-
-  ```
-  solana config set --ws YOUR_CHAINSTACK_WSS_ENDPOINT
-  ```
+The client is called **Agave** (forked from Solana Labs by Anza), but the binary is still named `solana` for ecosystem compatibility. `solana --version` prints `solana-cli 3.x.x (... client:Agave)`. Upgrades now go through `agave-install update` (the old `solana-install` binary was renamed).
 </Info>
+
+Point the CLI at your Chainstack node:
+
+```bash
+solana config set --url YOUR_CHAINSTACK_ENDPOINT
+```
+
+<Warning>
+When you set the HTTPS endpoint with `solana config set`, the CLI derives a WebSocket endpoint by swapping the protocol — but the port stays the same, which is usually wrong for Chainstack. Set the WebSocket explicitly:
+
+```bash
+solana config set --ws YOUR_CHAINSTACK_WSS_ENDPOINT
+```
+</Warning>
+
+Example:
+
+```bash
+$ solana block-height
+413787151
+```
+
+Full command reference: [Solana CLI docs](https://docs.anza.xyz/cli).
 
 ## JSON-RPC API
 
-Interact with your Solana network using [JSON-RPC API](https://docs.solana.com/developing/clients/jsonrpc-api).
+Any HTTP client works. Use [curl](https://curl.haxx.se) or [Postman](https://www.getpostman.com) for ad-hoc calls; see the full [JSON-RPC reference](https://solana.com/docs/rpc) for all methods.
 
-Use [curl](https://curl.haxx.se) or [Postman](https://www.getpostman.com).
+```bash
+curl -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"getBalance","params":["23dQfKhhsZ9RA5AAn12KGk21MB784PmTB3gfKRwdBNHr"],"id":1}' \
+  YOUR_CHAINSTACK_ENDPOINT
+```
 
-Example to get account balance:
+where `YOUR_CHAINSTACK_ENDPOINT` is your node HTTPS endpoint. See [node access details](/docs/manage-your-node#view-node-access-and-credentials).
 
-<CodeGroup>
-  ```bash cURL
-  curl -H "Content-Type: application/json" \
-    -d '{"jsonrpc":"2.0","method":"getBalance","params":["23dQfKhhsZ9RA5AAn12KGk21MB784PmTB3gfKRwdBNHr"],"id":1}' \
-    YOUR_CHAINSTACK_ENDPOINT
-  ```
-</CodeGroup>
+## JavaScript and TypeScript: @solana/kit
 
-where YOUR\_CHAINSTACK\_ENDPOINT is your node HTTPS or WSS endpoint protected either with the key or password. See [node access details](/docs/manage-your-node#view-node-access-and-credentials).
+[`@solana/kit`](https://github.com/anza-xyz/kit) is the modern Solana JavaScript SDK — a tree-shakeable, functional API that replaces the class-based `@solana/web3.js` v1. It is the direct successor to what briefly shipped as `@solana/web3.js@2.x`.
 
-## Solana web3.js
+```bash
+npm install @solana/kit
+```
 
-1. Install Solana web3.js. See [Solana web3.js guide](https://docs.solana.com/developing/clients/javascript-api).
+Fetch an account balance against your Chainstack endpoint:
 
-2. Use `Connection` to connect to your Solana node and get account balance:
+```typescript
+import { address, createSolanaRpc, lamports } from "@solana/kit";
 
-   ```javascript
-   const web3 = require("@solana/web3.js");
-   (async () => {
-     const publicKey = new web3.PublicKey(
-       '23dQfKhhsZ9RA5AAn12KGk21MB784PmTB3gfKRwdBNHr'
-     );
-     const connect = new web3.Connection('YOUR_CHAINSTACK_ENDPOINT');
-     console.log(await connect.getBalance(publicKey));
-   })();
-   ```
+const rpc = createSolanaRpc("YOUR_CHAINSTACK_ENDPOINT");
+const balance = await rpc
+  .getBalance(address("23dQfKhhsZ9RA5AAn12KGk21MB784PmTB3gfKRwdBNHr"))
+  .send();
 
-   where YOUR_CHAINSTACK_ENDPOINT is your node HTTPS or WSS endpoint protected either with the key or password. See [node access details](/docs/manage-your-node#view-node-access-and-credentials).
-## Solana.py
+console.log(balance.value); // lamports as bigint
+```
 
-1. Install [Solana.py](https://github.com/michaelhly/solana-py).
+### Per-program instruction builders
 
-2. Use `Client` to connect to your Solana node and get account balance:
+Kit exposes only the RPC layer. Typed instruction builders for each Solana program live in per-program packages under the [`solana-program`](https://github.com/solana-program) org — install them alongside Kit as you need them:
 
-   ```python
-   from solana.rpc.api import Client
-   from solana.publickey import PublicKey
-   client = Client('YOUR_CHAINSTACK_ENDPOINT')
-   print(client.get_balance(PublicKey('23dQfKhhsZ9RA5AAn12KGk21MB784PmTB3gfKRwdBNHr')))
-   ```
+```bash
+npm install @solana/kit @solana-program/system @solana-program/token
+```
 
-   where YOUR_CHAINSTACK_ENDPOINT is your node HTTPS or WSS endpoint protected either with the key or password. See [node access details](/docs/manage-your-node#view-node-access-and-credentials).
-## Backpack wallet
+### Migrating from @solana/web3.js v1
 
-[Backpack](https://backpack.app/) is one of the few (if not the only) Solana wallets allowing to add a custom RPC node endpoint.
+`@solana/web3.js` v1 is on a [maintenance branch](https://github.com/solana-foundation/solana-web3.js/tree/maintenance/v1.x) — security fixes only, no new features. For existing v1 apps, the [`@solana/web3-compat`](https://solana.com/docs/frontend/web3-compat) bridge lets you keep your existing imports while progressively adopting Kit primitives:
 
-You should use your own Solana RPC node for enterprise-grade reliability, not to fall victim to a sudden network congestion, or if you want to use your own [Trader node](/docs/warp-transactions) .
+```bash
+npm install @solana/web3-compat @solana/kit
+```
 
-To add your own Solana RPC node endpoint to your Backpack wallet:
+## React dApps: create-solana-dapp
 
-1. Open your Backpack wallet.
+The official scaffolding CLI bootstraps a full dApp (Next.js + Tailwind + wallet connection + Anchor example) in one command:
+
+```bash
+npm create solana-dapp@latest
+# or: pnpm create solana-dapp@latest
+# or: bun create solana-dapp@latest
+```
+
+Templates are maintained at [solana-foundation/templates](https://github.com/solana-foundation/templates). The default scaffold uses `@solana/kit` + [`@solana/react-hooks`](https://github.com/solana-foundation/framework-kit) (framework-kit) for wallet and RPC wiring.
+
+## Programs: Anchor 1.0
+
+[Anchor v1.0.0](https://www.anchor-lang.com) shipped on 2026-04-02. Install via the Anchor Version Manager:
+
+```bash
+cargo install --git https://github.com/solana-foundation/anchor avm --force
+avm install latest
+avm use latest
+```
+
+<Warning>
+**Breaking rename in v1.0:** The TypeScript package was renamed from `@coral-xyz/anchor` to `@anchor-lang/core`. The Rust crate remains `anchor-lang`. Existing `@coral-xyz/anchor` imports continue to resolve to the 0.32.x line but will not receive v1.0 features.
+</Warning>
+
+Anchor v1.0 also makes [Surfpool the default validator](https://github.com/solana-foundation/anchor/pull/4106) for `anchor test` and `anchor localnet`. See [Solana: Anchor development](/docs/solana-anchor-development) for an end-to-end walkthrough.
+
+## Client codegen: Codama
+
+[Codama](https://github.com/codama-idl/codama) (the successor to Kinobi) generates typed JavaScript and Rust clients from a program IDL. The standard workflow is:
+
+```
+Anchor / Shank macros → IDL → Codama → TypeScript / Rust clients
+```
+
+```bash
+pnpm install codama
+codama init
+```
+
+This is how the `@solana-program/*` packages are produced. Any program you ship should emit an IDL and pipe it through Codama to generate first-class client types.
+
+## Local testing
+
+Three tools cover the modern Solana testing pyramid:
+
+| Tier | Tool | Guide |
+|---|---|---|
+| Unit (in-process, multi-instruction) | **LiteSVM** | [Solana: Fast unit testing with LiteSVM](/docs/solana-litesvm-testing) |
+| Unit (single-instruction, CU benchmarks) | [Mollusk](https://github.com/anza-xyz/mollusk) | — |
+| Integration (full RPC, mainnet fork) | **Surfpool** | [Solana: Surfpool quick-start](/docs/solana-surfpool) |
+
+LiteSVM boots an in-process SVM for fast unit tests. Surfpool wraps LiteSVM with a full JSON-RPC server and a copy-on-read mainnet fork — Anchor 1.0 invokes it as the default validator. Mollusk, from Anza, focuses on single-instruction CU profiling.
+
+## Python: Solana.py and solders
+
+[Solana.py](https://github.com/michaelhly/solana-py) is the main RPC client:
+
+```bash
+pip install solana
+```
+
+```python
+from solana.rpc.api import Client
+from solders.pubkey import Pubkey
+
+client = Client("YOUR_CHAINSTACK_ENDPOINT")
+print(client.get_balance(Pubkey.from_string("23dQfKhhsZ9RA5AAn12KGk21MB784PmTB3gfKRwdBNHr")))
+```
+
+<Info>
+Solana.py now uses [solders](https://github.com/kevinheavey/solders) under the hood for its core types (`Keypair`, `Transaction`, `Pubkey`, etc.) — `pip install solana` installs solders transitively. Solders also ships the Python bindings for LiteSVM (`from solders.litesvm import LiteSVM`).
+</Info>
+
+## AI-assisted development
+
+The Solana Foundation publishes an official [solana-dev-skill](https://github.com/solana-foundation/solana-dev-skill) — a Claude Code skill that teaches agents the current Solana stack (Kit, Anchor 1.0, Codama, LiteSVM/Surfpool, security patterns, version compatibility).
+
+Install it into Claude Code:
+
+```bash
+npx skills add https://github.com/solana-foundation/solana-dev-skill
+```
+
+Once installed, the skill activates automatically on Solana-related prompts. It covers program development (Anchor and Pinocchio), client work with Kit and framework-kit, testing with LiteSVM and Surfpool, IDL codegen with Codama, and common error troubleshooting.
+
+For the broader AI tooling ecosystem — Cursor rules, MCP servers, agent kits — see the Solana Foundation's [awesome-solana-ai](https://github.com/solana-foundation/awesome-solana-ai) catalog.
+
+## Wallets
+
+### Backpack
+
+[Backpack](https://backpack.app) is one of the few Solana wallets that lets you set a custom RPC endpoint — essential if you want your wallet to inherit the reliability of your own node rather than share a public endpoint during congestion.
+
+To point Backpack at your Chainstack Solana node:
+
+1. Open Backpack.
 2. Click the account icon > **Settings**.
 3. Click **Solana** > **RPC connection** > **Custom**.
-4. Enter your Chainstack Solana node endpoint and hit **Update**.
+4. Enter your Chainstack Solana HTTPS endpoint and click **Update**.
 
-Congrats, now you are safe with reliable network access.
+## Reference repos
+
+These are the source repositories we worked against while writing this guide. They stay closer to reality than docs — check them first when something here looks off.
+
+- [anza-xyz/kit](https://github.com/anza-xyz/kit) — `@solana/kit` v6 source; canonical for RPC types and transaction-builder semantics
+- [solana-foundation/anchor](https://github.com/solana-foundation/anchor) — Anchor 1.0 source; framework behavior cross-checked against master
+- [solana-foundation/solana-dev-skill](https://github.com/solana-foundation/solana-dev-skill) — Solana Foundation's Claude Code skill; opinionated stack defaults cross-checked against
+- [solana-foundation/templates](https://github.com/solana-foundation/templates) — `create-solana-dapp` scaffolder templates
+- [codama-idl/codama](https://github.com/codama-idl/codama) — IDL → typed-client codegen referenced in the "generate clients from IDL" section

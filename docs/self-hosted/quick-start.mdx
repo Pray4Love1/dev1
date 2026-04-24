@@ -1,0 +1,329 @@
+---
+title: "Quick start"
+description: Complete walkthrough from a fresh Ubuntu installation to a running Chainstack Self-Hosted Control Panel with your first blockchain node deployed.
+---
+
+This guide walks you through a complete installation of Chainstack Self-Hosted on a dedicated server, from a fresh Ubuntu installation to a running Control Panel.
+
+## Overview
+
+By the end of this guide, you will have:
+
+- A Kubernetes cluster running on your server
+- The Chainstack Self-Hosted Control Panel deployed and accessible
+- The ability to deploy blockchain nodes through the web interface
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+- A dedicated server or virtual machine meeting the [system requirements](/docs/self-hosted/requirements)
+- Root or sudo access to the server
+- A stable internet connection
+
+## End-to-end example
+
+This example uses a dedicated server from Contabo running Ubuntu 22.04, but the steps apply to any compatible server.
+
+<Steps>
+
+<Step title="Install required tools">
+
+Connect to your server via SSH and install the required dependencies. For detailed instructions, see [Environment setup](/docs/self-hosted/environment-setup).
+
+```bash
+# Update package lists
+apt update
+
+# Install prerequisites
+apt install curl gpg wget apt-transport-https --yes
+
+# Install Helm
+curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+apt update
+apt install helm --yes
+
+# Install yq (mikefarah version)
+wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+chmod +x /usr/local/bin/yq
+
+# Verify installations
+helm version
+yq --version
+```
+
+</Step>
+
+<Step title="Install Kubernetes (k3s)">
+
+k3s is a lightweight Kubernetes distribution that's easy to install and suitable for single-server deployments. For detailed instructions, see [Environment setup](/docs/self-hosted/environment-setup).
+
+```bash
+# Install k3s
+curl -sfL https://get.k3s.io | sh -
+
+# Configure kubectl to use k3s
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+# Make the configuration persistent
+echo 'KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> /etc/environment
+
+# Verify the cluster is running
+kubectl cluster-info
+kubectl get nodes
+```
+
+You should see output indicating the cluster is running and your node is in Ready state.
+
+</Step>
+
+<Step title="Configure storage (optional but recommended)">
+
+If you have multiple disks available for blockchain node data, set up LVM and TopoLVM for dynamic storage provisioning. For detailed instructions, see [Environment setup](/docs/self-hosted/environment-setup).
+
+```bash
+# Install LVM tools
+apt install lvm2
+
+# Find your disk devices (paths vary by provider)
+lsblk
+
+# Create physical volumes (replace with your actual disk devices)
+pvcreate /dev/sdb /dev/sdc /dev/sdd
+
+# Create volume group
+vgcreate myvg1 /dev/sdb /dev/sdc /dev/sdd
+```
+
+<Note>
+Device paths vary by provider. The paths `/dev/sdb`, `/dev/sdc`, `/dev/sdd` are examples from Contabo. On DigitalOcean, volumes appear under `/dev/disk/by-id/`. On AWS, they may be `/dev/nvme1n1`, `/dev/nvme2n1`, etc. Always verify your actual device paths with `lsblk` before creating physical volumes.
+</Note>
+
+```bash
+# Install TopoLVM for Kubernetes storage provisioning
+helm repo add topolvm https://topolvm.github.io/topolvm
+helm repo update
+
+# Create namespace and install cert-manager (required by TopoLVM)
+kubectl create namespace topolvm-system
+CERT_MANAGER_VERSION=v1.17.4
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.crds.yaml
+
+# Install TopoLVM
+helm install --namespace=topolvm-system topolvm topolvm/topolvm --set cert-manager.enabled=true
+
+# Check storage classes
+kubectl get storageclass
+```
+
+If using TopoLVM, set it as the default storage class:
+
+```bash
+# Remove default from local-path
+kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
+
+# Set TopoLVM as default
+kubectl patch storageclass topolvm-provisioner -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+
+# Verify
+kubectl get storageclass
+```
+
+<Note>
+If you're using the default k3s local-path storage class (single disk), you can skip this step.
+</Note>
+
+</Step>
+
+<Step title="Get the installer">
+
+[Download the installer](/docs/self-hosted/download-installer) for your operating system.
+
+</Step>
+
+<Step title="Run the installation">
+
+Run the installer with your desired version and storage class:
+
+```bash
+cpctl install -v v1.4.6 -s topolvm-provisioner
+```
+
+The installer will:
+
+1. Check prerequisites (kubectl, helm, yq, openssl, cluster access)
+2. Generate secure passwords for all services
+3. Save the credentials to `~/.config/cp-suite/values/`
+4. Prompt for the backend API URL. Use the default (`http://cp-cp-deployments-api`) for in-cluster access, or specify an external URL (e.g., `http://<SERVER-PUBLIC-IP>`) if accessing from outside the cluster.
+5. Prompt for the workload namespace where blockchain node pods will run (default: `control-panel-deployments`).
+6. Prompt to configure the monitoring stack — install fresh, reuse an existing VictoriaMetrics operator, or skip.
+7. Show a summary and ask you to confirm before deploying.
+
+The installation typically takes 5–10 minutes. You'll see output similar to:
+
+```text
+→ Validating prerequisites...
+✓ Checking kubectl installation
+✓ Checking helm installation
+✓ Checking helm version (v3+ required)
+✓ Checking Kubernetes cluster connectivity
+✓ All prerequisites validated successfully
+
+==> Generating credentials for basic installation
+→ Generating secure passwords...
+→ Generating RSA keys for JWT authentication...
+→ Saving credentials to config directory...
+✓ Credentials saved: /root/.config/cp-suite/values/cp-control-panel-<timestamp>.yaml
+✓ Storage class "topolvm-provisioner" validated
+
+==> About to install Control Panel
+  Version: v1.4.6
+  Namespace: control-panel
+  Workload Namespace: control-panel-deployments
+  Release: cp
+  Timeout: 15m0s
+
+Do you want to proceed? [y/N]: y
+```
+
+</Step>
+
+<Step title="Verify the installation">
+
+The installer shows a live progress table during deployment. Once complete, you should see:
+
+```text
+✓ Installation completed successfully in 6m5s
+✓ Installation completed successfully
+```
+
+You can also check the status at any time:
+
+```bash
+cpctl status
+```
+
+Look for the healthy status at the bottom of the output:
+
+```text
+Overall Status: ✓ Healthy
+Reason: All components ready
+```
+
+</Step>
+
+<Step title="Expose the web interface">
+
+Apply an Ingress to expose both the Control Panel and Grafana under the same IP. The example below uses Traefik, which k3s ships with by default:
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cp-ui
+  namespace: control-panel
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /grafana
+        pathType: Prefix
+        backend:
+          service:
+            name: cp-grafana
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cp-cp-ui
+            port:
+              number: 80
+EOF
+```
+
+For testing without an ingress controller, use port forwarding:
+
+```bash
+kubectl port-forward svc/cp-cp-ui 8080:80 -n control-panel --address 0.0.0.0 &
+kubectl port-forward svc/cp-grafana 3000:80 -n control-panel --address 0.0.0.0 &
+```
+
+</Step>
+
+<Step title="Access the Control Panel">
+
+Open your browser and navigate to:
+
+- **Ingress:** `http://<SERVER-IP>` — Control Panel, `http://<SERVER-IP>/grafana` — Grafana
+- **Port forward:** `http://<SERVER-IP>:8080` — Control Panel, `http://<SERVER-IP>:3000` — Grafana
+
+You should see the Chainstack Self-Hosted login page.
+
+</Step>
+
+<Step title="Find your login credentials">
+
+The installer displays the username and a command to retrieve the password at the end of the installation:
+
+```text
+==> Retrieving Bootstrap Admin Credentials
+
+→ Username: admin
+→ To retrieve the bootstrap password, run:
+
+  yq '.cp-auth.env.CP_AUTH_BOOTSTRAP_PASSWORD' "/root/.config/cp-suite/values/cp-control-panel-<timestamp>.yaml"
+```
+
+Run the `yq` command from the output to get your password:
+
+```bash
+yq '.cp-auth.env.CP_AUTH_BOOTSTRAP_PASSWORD' /root/.config/cp-suite/values/cp-control-panel-*.yaml
+```
+
+</Step>
+
+</Steps>
+
+## Next steps
+
+Congratulations! You now have Chainstack Self-Hosted running. Continue with:
+
+1. [First login](/docs/self-hosted/first-login) — First login and initial configuration
+2. [Deploying nodes](/docs/self-hosted/deploying-nodes) — Deploy your first blockchain node
+3. [Troubleshooting](/docs/self-hosted/troubleshooting) — If you encounter any issues
+
+## Useful kubectl commands
+
+Set the default namespace to avoid typing `-n control-panel` every time:
+
+```bash
+kubectl config set-context --current --namespace=control-panel
+```
+
+Common commands for managing your installation:
+
+```bash
+# View all pods
+kubectl get pods
+
+# View all services
+kubectl get svc
+
+# View persistent volume claims
+kubectl get pvc
+
+# View logs for a specific pod
+kubectl logs <pod-name>
+
+# Describe a deployment for troubleshooting
+kubectl describe deployment cp-cp-deployments-api
+
+# Restart a deployment
+kubectl rollout restart deployment cp-cp-ui
+```

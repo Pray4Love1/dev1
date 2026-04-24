@@ -1,5 +1,6 @@
 ---
 title: "Solana: How to perform token swaps using the Raydium SDK"
+description: "Perform Solana token swaps with Raydium SDK and Chainstack. Learn TypeScript implementation, pool configuration, transaction handling, and SOL to USDC swaps."
 ---
 
 <Frame>
@@ -7,7 +8,7 @@ title: "Solana: How to perform token swaps using the Raydium SDK"
 </Frame>
 
 **TLDR:**
-* Using the Raydium SDK on Solana allows you to swap tokens efficiently while leveraging Serum’s order book for ample liquidity.
+* Using the Raydium SDK on Solana allows you to swap tokens efficiently while leveraging OpenBook’s order book for ample liquidity.
 * This TypeScript project sets up the Solana Connection (with your own node endpoint), loads trimmed pool data, and constructs a transaction for a token pair (e.g., SOL → USDC).
 * Configuration lives in `swapConfig.ts` for easy adjustments (e.g., token amounts, slippage, versioned transaction usage).
 * You can simulate swaps first or execute them immediately, with built-in transaction logging and debugging.
@@ -16,7 +17,7 @@ title: "Solana: How to perform token swaps using the Raydium SDK"
 
 The Solana blockchain is at the forefront of DeFi, known for its remarkable speed and cost-efficiency. This has positioned Solana as a highly sought-after platform for users and developers interested in DeFi activities.
 
-Central to this ecosystem's appeal is Raydium, an automated market maker (AMM) that integrates seamlessly with Serum's central order book, enabling quick and cost-effective token transactions. Raydium's integration with Solana facilitates immediate swaps with minimal slippage and maintains liquidity at optimal levels.
+Central to this ecosystem's appeal is Raydium, an automated market maker (AMM) that integrates seamlessly with OpenBook's central order book, enabling quick and cost-effective token transactions. Raydium's integration with Solana facilitates immediate swaps with minimal slippage and maintains liquidity at optimal levels.
 
 In this guide, we'll walk you through using the Raydium SDK and Solana Chainstack nodes to swap tokens in TypeScript.
 
@@ -25,9 +26,12 @@ In this guide, we'll walk you through using the Raydium SDK and Solana Chainstac
 Before diving into the token-swapping process using the Raydium SDK on Solana, ensuring you have everything needed for a smooth experience is key. Here's a quick rundown of what you'll need beforehand and how to set everything up:
 
 ### Deploy a Chainstack Solana node
+
+Deploy a [Solana RPC endpoint on Chainstack](https://chainstack.com/build-better-with-solana/):
+
 <CardGroup>
   <Card title="Sign up with Chainstack" href="https://console.chainstack.com/user/account/create" icon="angle-right" horizontal />
-  <Card title="Deploy a node" href="/docs/manage-your-networks#join-a-public-network" icon="angle-right" horizontal />
+  <Card title="Deploy a node" href="/docs/manage-your-networks" icon="angle-right" horizontal />
   <Card title="View node access and credentials" href="/docs/manage-your-node#view-node-access-and-credentials" icon="angle-right" horizontal />
 </CardGroup>
 

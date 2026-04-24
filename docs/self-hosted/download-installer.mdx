@@ -1,0 +1,172 @@
+---
+title: "Install Chainstack Self-Hosted"
+description: Download the Chainstack Self-Hosted installer and run the cpctl bootstrap command to set up your self-managed blockchain infrastructure environment.
+---
+
+To install Chainstack Self-Hosted, run the installer for your operating system:
+
+<Tabs>
+<Tab title="Linux / macOS">
+
+```bash
+curl -sSL https://install.chainstack.com/cpctl.sh | sh
+```
+
+</Tab>
+<Tab title="Windows">
+
+```powershell
+irm https://install.chainstack.com/cpctl.ps1 | iex
+```
+
+</Tab>
+</Tabs>
+
+This downloads and runs the `cpctl` installer script, which sets up the Chainstack Self-Hosted command-line tool on your system.
+
+## Supported platforms
+
+The installer automatically detects your operating system and architecture.
+
+| Operating system | Architectures |
+|---|---|
+| Linux | amd64 (x86_64), arm64 (aarch64) |
+| macOS | amd64 (x86_64), arm64 (aarch64) |
+| Windows | amd64 (x86_64), arm64 |
+
+<Note>
+32-bit systems (x86, ARM) are not supported.
+</Note>
+
+## Install a specific version
+
+<Tabs>
+<Tab title="Linux / macOS">
+
+Pass the version as an argument:
+
+```bash
+curl -sSL https://install.chainstack.com/cpctl.sh | sh -s v1.4.6
+```
+
+Or set the `CPCTL_VERSION` environment variable:
+
+```bash
+CPCTL_VERSION=v1.4.6 curl -sSL https://install.chainstack.com/cpctl.sh | sh
+```
+
+</Tab>
+<Tab title="Windows">
+
+```powershell
+iwr https://install.chainstack.com/cpctl.ps1 -OutFile cpctl.ps1
+.\cpctl.ps1 -Version v1.4.6
+```
+
+Or set the `CPCTL_VERSION` environment variable:
+
+```powershell
+$env:CPCTL_VERSION = "v1.4.6"
+irm https://install.chainstack.com/cpctl.ps1 | iex
+```
+
+</Tab>
+</Tabs>
+
+## Custom install directory
+
+<Tabs>
+<Tab title="Linux / macOS">
+
+By default, `cpctl` installs to `/usr/local/bin/`. To override the install directory, set the `CPCTL_INSTALL_DIR` environment variable:
+
+```bash
+CPCTL_INSTALL_DIR=/opt/bin curl -sSL https://install.chainstack.com/cpctl.sh | sh
+```
+
+</Tab>
+<Tab title="Windows">
+
+By default, `cpctl` installs to `%LOCALAPPDATA%\cpctl\` and is automatically added to the user `PATH`.
+
+</Tab>
+</Tabs>
+
+<Note>
+Make sure your server meets the [system requirements](/docs/self-hosted/requirements) before running the installer.
+</Note>
+
+## Verify the cpctl binary
+
+After the installer completes, confirm that `cpctl` is available and check its version:
+
+```bash
+cpctl version
+```
+
+## Shell completion
+
+`cpctl` can generate shell completion scripts for bash, zsh, fish, and PowerShell.
+
+<Tabs>
+<Tab title="bash">
+
+Load completions for the current session:
+
+```bash
+source <(cpctl completion bash)
+```
+
+Load for every new session:
+
+```bash
+# Linux
+cpctl completion bash > /etc/bash_completion.d/cpctl
+
+# macOS
+cpctl completion bash > $(brew --prefix)/etc/bash_completion.d/cpctl
+```
+
+</Tab>
+<Tab title="zsh">
+
+Load completions for the current session:
+
+```zsh
+source <(cpctl completion zsh)
+```
+
+Load for every new session:
+
+```zsh
+cpctl completion zsh > "${fpath[1]}/_cpctl"
+```
+
+</Tab>
+<Tab title="fish">
+
+Load completions for the current session:
+
+```fish
+cpctl completion fish | source
+```
+
+Load for every new session:
+
+```fish
+cpctl completion fish > ~/.config/fish/completions/cpctl.fish
+```
+
+</Tab>
+<Tab title="PowerShell">
+
+Load completions for the current session:
+
+```powershell
+cpctl completion powershell | Out-String | Invoke-Expression
+```
+
+To persist, add that line to your PowerShell profile (`$PROFILE`).
+
+</Tab>
+</Tabs>

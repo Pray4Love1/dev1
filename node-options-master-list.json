@@ -123,25 +123,6 @@
       },
       "testnets": [
         {
-          "network_name": "Holesky Testnet",
-          "faucet_url": "https://faucet.chainstack.com",
-          "locations": [
-            {
-              "cloud": "Chainstack Global Network",
-              "node_type": "Global Node",
-              "region": "global1",
-              "location": "Worldwide",
-              "deployment_options": [
-                {
-                  "mode": "Archive",
-                  "debug_trace": true,
-                  "warp_transactions": false
-                }
-              ]
-            }
-          ]
-        },
-        {
           "network_name": "Sepolia Testnet",
           "faucet_url": "https://faucet.chainstack.com",
           "locations": [
@@ -1119,6 +1100,11 @@
                   "mode": "Full",
                   "debug_trace": false,
                   "warp_transactions": false
+                },
+                {
+                  "mode": "Archive",
+                  "debug_trace": true,
+                  "warp_transactions": false
                 }
               ]
             }
@@ -1215,10 +1201,11 @@
     "Sui": {
       "protocol_name": "Sui",
       "supported_modes": [
-        "Full"
+        "Full",
+        "Archive"
       ],
       "full_mode_query_limit": "N/A",
-      "archive_mode_available": false,
+      "archive_mode_available": true,
       "debug_trace_available": false,
       "warp_transactions_available": false,
       "dedicated_node_availability": "Platform",
@@ -1241,7 +1228,27 @@
           }
         ]
       },
-      "testnets": [],
+      "testnets": [
+        {
+          "network_name": "Testnet",
+          "faucet_url": "https://faucet.sui.io/",
+          "locations": [
+            {
+              "cloud": "Chainstack Global Network",
+              "node_type": "Global Node",
+              "region": "global1",
+              "location": "Worldwide",
+              "deployment_options": [
+                {
+                  "mode": "Archive",
+                  "debug_trace": false,
+                  "warp_transactions": false
+                }
+              ]
+            }
+          ]
+        }
+      ],
       "additional_notes": "N/A"
     },
     "Berachain": {
@@ -1341,6 +1348,162 @@
         ]
       },
       "testnets": [],
+      "additional_notes": "N/A"
+    },
+    "MegaETH": {
+      "protocol_name": "MegaETH",
+      "supported_modes": [
+        "Full",
+        "Archive"
+      ],
+      "full_mode_query_limit": "N/A",
+      "archive_mode_available": true,
+      "debug_trace_available": true,
+      "warp_transactions_available": false,
+      "dedicated_node_availability": "Platform",
+      "mainnet": {
+        "network_name": "Mainnet",
+        "faucet_url": "N/A",
+        "locations": [
+          {
+            "cloud": "Chainstack Partner Network",
+            "node_type": "Global Node",
+            "region": "global2",
+            "location": "Worldwide",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          },
+          {
+            "cloud": "Chainstack Cloud",
+            "node_type": "Dedicated Node",
+            "region": "lon1",
+            "location": "London",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          },
+          {
+            "cloud": "Chainstack Cloud",
+            "node_type": "Dedicated Node",
+            "region": "sgp1",
+            "location": "Singapore",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          },
+          {
+            "cloud": "Chainstack Cloud",
+            "node_type": "Dedicated Node",
+            "region": "nyc1",
+            "location": "New York",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          },
+          {
+            "cloud": "Chainstack Cloud",
+            "node_type": "Dedicated Node",
+            "region": "lax1",
+            "location": "Los Angeles",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          },
+          {
+            "cloud": "Chainstack Cloud",
+            "node_type": "Dedicated Node",
+            "region": "fra1",
+            "location": "Frankfurt",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          },
+          {
+            "cloud": "Chainstack Cloud",
+            "node_type": "Dedicated Node",
+            "region": "ash1",
+            "location": "Ashburn",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          },
+          {
+            "cloud": "Chainstack Cloud",
+            "node_type": "Dedicated Node",
+            "region": "lax2",
+            "location": "Los Angeles",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          },
+          {
+            "cloud": "Chainstack Cloud",
+            "node_type": "Dedicated Node",
+            "region": "tyo1",
+            "location": "Tokyo",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          },
+          {
+            "cloud": "Chainstack Cloud",
+            "node_type": "Dedicated Node",
+            "region": "lon2",
+            "location": "London",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          }
+        ]
+      },
+      "testnets": [
+        {
+          "network_name": "Testnet",
+          "faucet_url": "N/A",
+          "locations": []
+        }
+      ],
       "additional_notes": "N/A"
     },
     "Polkadot": {
@@ -1802,7 +1965,7 @@
       ],
       "full_mode_query_limit": "Latest 100 blocks",
       "archive_mode_available": true,
-      "debug_trace_available": false,
+      "debug_trace_available": true,
       "warp_transactions_available": false,
       "dedicated_node_availability": "Platform",
       "mainnet": {
@@ -1817,7 +1980,7 @@
             "deployment_options": [
               {
                 "mode": "Archive",
-                "debug_trace": false,
+                "debug_trace": true,
                 "warp_transactions": false
               }
             ]
@@ -1830,12 +1993,12 @@
             "deployment_options": [
               {
                 "mode": "Archive",
-                "debug_trace": false,
+                "debug_trace": true,
                 "warp_transactions": false
               },
               {
                 "mode": "Full",
-                "debug_trace": false,
+                "debug_trace": true,
                 "warp_transactions": false
               }
             ]
@@ -2249,6 +2412,25 @@
               "node_type": "Trader Node",
               "region": "ams1",
               "location": "Amsterdam",
+              "deployment_options": [
+                {
+                  "mode": "Full",
+                  "debug_trace": false,
+                  "warp_transactions": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "network_name": "Signet",
+          "faucet_url": "N/A",
+          "locations": [
+            {
+              "cloud": "Chainstack Global Network",
+              "node_type": "Global Node",
+              "region": "global1",
+              "location": "Worldwide",
               "deployment_options": [
                 {
                   "mode": "Full",
@@ -2893,6 +3075,298 @@
       },
       "testnets": [],
       "additional_notes": "Dedicated nodes only"
+    },
+    "Celestia": {
+      "protocol_name": "Celestia",
+      "supported_modes": [
+        "N/A"
+      ],
+      "full_mode_query_limit": "N/A",
+      "archive_mode_available": false,
+      "debug_trace_available": false,
+      "warp_transactions_available": false,
+      "dedicated_node_availability": "Contact us",
+      "mainnet": {
+        "network_name": "N/A",
+        "faucet_url": "N/A",
+        "locations": []
+      },
+      "testnets": [],
+      "additional_notes": "Dedicated nodes only"
+    },
+    "Katana": {
+      "protocol_name": "Katana",
+      "supported_modes": [
+        "N/A"
+      ],
+      "full_mode_query_limit": "N/A",
+      "archive_mode_available": false,
+      "debug_trace_available": false,
+      "warp_transactions_available": false,
+      "dedicated_node_availability": "Contact us",
+      "mainnet": {
+        "network_name": "N/A",
+        "faucet_url": "N/A",
+        "locations": []
+      },
+      "testnets": [],
+      "additional_notes": "Dedicated nodes only"
+    },
+    "Monad": {
+      "protocol_name": "Monad",
+      "supported_modes": [
+        "Full",
+        "Archive"
+      ],
+      "full_mode_query_limit": "Latest 128 blocks",
+      "archive_mode_available": true,
+      "debug_trace_available": true,
+      "warp_transactions_available": false,
+      "dedicated_node_availability": "Contact us",
+      "mainnet": {
+        "network_name": "Mainnet",
+        "faucet_url": "N/A",
+        "locations": [
+          {
+            "cloud": "Chainstack Global Network",
+            "node_type": "Global Node",
+            "region": "global1",
+            "location": "Worldwide",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          }
+        ]
+      },
+      "testnets": [
+        {
+          "network_name": "Testnet",
+          "faucet_url": "N/A",
+          "locations": [
+            {
+              "cloud": "Chainstack Global Network",
+              "node_type": "Global Node",
+              "region": "global1",
+              "location": "Worldwide",
+              "deployment_options": [
+                {
+                  "mode": "Full",
+                  "debug_trace": true,
+                  "warp_transactions": false
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "additional_notes": "N/A"
+    },
+    "NeoX": {
+      "protocol_name": "NeoX",
+      "supported_modes": [
+        "N/A"
+      ],
+      "full_mode_query_limit": "N/A",
+      "archive_mode_available": false,
+      "debug_trace_available": false,
+      "warp_transactions_available": false,
+      "dedicated_node_availability": "Contact us",
+      "mainnet": {
+        "network_name": "N/A",
+        "faucet_url": "N/A",
+        "locations": []
+      },
+      "testnets": [],
+      "additional_notes": "Dedicated nodes only"
+    },
+    "Plasma": {
+      "protocol_name": "Plasma",
+      "supported_modes": [
+        "Archive"
+      ],
+      "full_mode_query_limit": "N/A",
+      "archive_mode_available": true,
+      "debug_trace_available": true,
+      "warp_transactions_available": false,
+      "dedicated_node_availability": "Contact us",
+      "mainnet": {
+        "network_name": "Mainnet",
+        "faucet_url": "N/A",
+        "locations": [
+          {
+            "cloud": "Chainstack Global Network",
+            "node_type": "Global Node",
+            "region": "global1",
+            "location": "Worldwide",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          }
+        ]
+      },
+      "testnets": [
+        {
+          "network_name": "Testnet",
+          "faucet_url": "N/A",
+          "locations": [
+            {
+              "cloud": "Chainstack Global Network",
+              "node_type": "Global Node",
+              "region": "global1",
+              "location": "Worldwide",
+              "deployment_options": [
+                {
+                  "mode": "Archive",
+                  "debug_trace": true,
+                  "warp_transactions": false
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "additional_notes": "N/A"
+    },
+    "TAC": {
+      "protocol_name": "TAC",
+      "supported_modes": [
+        "N/A"
+      ],
+      "full_mode_query_limit": "N/A",
+      "archive_mode_available": false,
+      "debug_trace_available": false,
+      "warp_transactions_available": false,
+      "dedicated_node_availability": "Contact us",
+      "mainnet": {
+        "network_name": "N/A",
+        "faucet_url": "N/A",
+        "locations": []
+      },
+      "testnets": [],
+      "additional_notes": "Dedicated nodes only"
+    },
+    "XDC": {
+      "protocol_name": "XDC",
+      "supported_modes": [
+        "N/A"
+      ],
+      "full_mode_query_limit": "N/A",
+      "archive_mode_available": false,
+      "debug_trace_available": false,
+      "warp_transactions_available": false,
+      "dedicated_node_availability": "Contact us",
+      "mainnet": {
+        "network_name": "N/A",
+        "faucet_url": "N/A",
+        "locations": []
+      },
+      "testnets": [],
+      "additional_notes": "Dedicated nodes only"
+    },
+    "Zircuit": {
+      "protocol_name": "Zircuit",
+      "supported_modes": [
+        "N/A"
+      ],
+      "full_mode_query_limit": "N/A",
+      "archive_mode_available": false,
+      "debug_trace_available": false,
+      "warp_transactions_available": false,
+      "dedicated_node_availability": "Contact us",
+      "mainnet": {
+        "network_name": "N/A",
+        "faucet_url": "N/A",
+        "locations": []
+      },
+      "testnets": [],
+      "additional_notes": "Dedicated nodes only"
+    },
+    "Tempo": {
+      "protocol_name": "Tempo",
+      "supported_modes": [
+        "Full",
+        "Archive"
+      ],
+      "full_mode_query_limit": "Latest 128 blocks",
+      "archive_mode_available": true,
+      "debug_trace_available": true,
+      "warp_transactions_available": false,
+      "dedicated_node_availability": "Platform",
+      "mainnet": {
+        "network_name": "Mainnet",
+        "faucet_url": "N/A",
+        "locations": [
+          {
+            "cloud": "Chainstack Global Network",
+            "node_type": "Global Node",
+            "region": "us-east-1",
+            "location": "US East (Ashburn)",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          },
+          {
+            "cloud": "Chainstack Global Network",
+            "node_type": "Global Node",
+            "region": "eu-central-1",
+            "location": "EU (Frankfurt)",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          },
+          {
+            "cloud": "Chainstack Global Network",
+            "node_type": "Global Node",
+            "region": "ap-southeast-1",
+            "location": "Asia (Singapore)",
+            "deployment_options": [
+              {
+                "mode": "Archive",
+                "debug_trace": true,
+                "warp_transactions": false
+              }
+            ]
+          }
+        ]
+      },
+      "testnets": [
+        {
+          "network_name": "Moderato Testnet",
+          "faucet_url": "/reference/tempo-tempo-fundaddress",
+          "locations": [
+            {
+              "cloud": "Chainstack Global Network",
+              "node_type": "Global Node",
+              "region": "global1",
+              "location": "Worldwide",
+              "deployment_options": [
+                {
+                  "mode": "Archive",
+                  "debug_trace": true,
+                  "warp_transactions": false
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "additional_notes": "Tempo is a Reth-based blockchain. Debug and trace methods available."
     }
   }
 }

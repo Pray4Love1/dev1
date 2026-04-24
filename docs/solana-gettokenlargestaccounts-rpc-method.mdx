@@ -1,5 +1,6 @@
 ---
-title: "Solana's getTokenLargestAccounts RPC method: How to view top SLP holder distribution"
+title: "Solana: getTokenLargestAccounts for SPL holders"
+description: Use getTokenLargestAccounts to view SPL token holder distribution, whale wallets, and concentration metrics through a Chainstack Solana RPC node.
 ---
 
 **TLDR:**
@@ -18,10 +19,10 @@ This guide is designed to walk you through the essentials of the `getTokenLarges
 
 ## Get a Solana RPC endpoint
 
-Before diving into the practical applications of the `getTokenLargestAccounts` method, you must ensure access to a Solana node. Chainstack provides a seamless and effective platform to deploy and manage Solana nodes. Here's how you get started:
+Before diving into the practical applications of the `getTokenLargestAccounts` method, you must ensure access to a [reliable Solana RPC endpoint](https://chainstack.com/build-better-with-solana/). Chainstack provides a seamless and effective platform to deploy and manage Solana nodes. Here's how you get started:
 
 1. [Sign up with Chainstack](https://console.chainstack.com/user/account/create).
-2. [Deploy a node](/docs/manage-your-networks#join-a-public-network).
+2. [Deploy a node](/docs/manage-your-networks).
 3. [View node access and credentials](/docs/manage-your-node#view-node-access-and-credentials).
 
 ## `getTokenLargestAccounts` RPC method
@@ -161,7 +162,7 @@ Before proceeding, ensure you have Node.js installed for JavaScript development 
    To interact with Solana's JSON RPC API in Python, install the necessary library using `pip`:
 
    <Info>
-     It is highly recommended to create a new Python virtual environment for this project; create one with `python3 -m venv solana-project`, then activate it with `source/solana-project/bin/activate`.
+     It is highly recommended to create a new Python virtual environment for this project; create one with `python3 -m venv solana-project`, then activate it with `source solana-project/bin/activate`.
    </Info>
 
 <CodeGroup>
@@ -313,18 +314,17 @@ Make sure you’ve set your Solana endpoint in `SOLANA_RPC_ENDPOINT` before you 
 This comprehensive guide has taken you through the journey of understanding and using the `getTokenLargestAccounts` method within the Solana ecosystem, a tool of paramount importance for developers, investors, and analysts alike. From setting up a Solana RPC endpoint with Chainstack to diving deep into the method's structure and integrating it into development projects to a hands-on, real-life application, we've explored the multifaceted utility of this method in unlocking insights into SPL Token distribution.
 
 <CardGroup>
-  <Card title="Ake" img="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Director of Developer Experience @ Chainstack
+  <Card title="Ake">
+    <img src="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg" alt="Ake" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/>  Talk to me all things Web3
+    <Icon icon="code" iconType="solid" /> Director of Developer Experience @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> Talk to me all things Web3
+    <br />20 years in technology | 8+ years in Web3 full time years experience
 
-    20 years in technology | 8+ years in Web3 full time years experience
-
-    Trusted advisor helping developers navigate the complexities of blockchain infrastructure
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/akegaviar/)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/akegaviar)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/ake/)
-    [<Icon icon="warpcast"  iconType="brands"/>](https://warpcast.com/ake)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/akegaviar/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/akegaviar" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/ake/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

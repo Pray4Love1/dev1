@@ -1,0 +1,29 @@
+---
+title: getSlotLeaders | Solana
+openapi: /openapi/solana_node_api/getSlotLeaders.json POST /9de47db917d4f69168e3fed02217d15b
+---
+
+The Solana `getSlotLeaders` method returns the slot leaders for a given slot range.
+
+Each slot on Solana has a designated leader validator responsible for producing the block. This method returns the ordered list of validator identities assigned to produce blocks in the requested range.
+
+<Check>
+**Get your own node endpoint today**
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Parameters
+
+1. `startSlot` (integer, required) — the start slot.
+2. `limit` (integer, required) — the number of slot leaders to return (1–5000).
+
+## Response
+
+* `result` (array of strings) — an array of node identity public keys as base58 encoded strings, in order of the slot leaders for each slot in the requested range.
+
+## Use case
+
+A common use case for `getSlotLeaders` is in transaction landing optimization. By knowing which validator is the upcoming leader, you can route transactions directly to that validator's TPU port for faster inclusion. This is especially useful in latency-sensitive applications like trading bots and arbitrage.

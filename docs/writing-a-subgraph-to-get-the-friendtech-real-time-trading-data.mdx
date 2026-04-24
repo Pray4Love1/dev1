@@ -1,6 +1,21 @@
 ---
-title: "Writing a subgraph to get the friend.tech real-time trading data"
+title: Subgraph for friend.tech real-time trading data
+description: "Index friend.tech trading data on Base L2 with subgraphs. Capture share trades, fees, and supply changes for social DApp analytics using Chainstack Subgraphs."
 ---
+
+<Warning>
+**Chainstack Subgraphs is transitioning to Ormi**
+
+Chainstack is sunsetting its Subgraphs service and partnering with [Ormi](https://ormilabs.com/), a next-generation subgraph indexer built for real-time production workloads, to support existing subgraphs. Your data and schemas remain unchanged—your only action is to swap the endpoint.
+
+- No new subgraphs after January 5, 2026
+- Service disabled on February 1, 2026
+- Ormi provides one free month (Feb 1 – March 1, 2026)
+
+For migration assistance, join the dedicated Telegram support group (check your email for the invitation).
+
+See the [Ormi–Chainstack transition guide](https://docs.ormilabs.com/subgraphs/tutorials/migrate-chainstack-subgraphs) for full details.
+</Warning>
 
 **TLDR:**
 * Shows how to index the friend.tech trading activities on Coinbase’s L2 Base using Chainstack Subgraphs.
@@ -263,15 +278,17 @@ The aim of this article was to showcase the scale of these subgraphs by using th
 
 ### About the author
 <CardGroup>
-  <Card title="Kirill Balakhonov" img="/images/docs/u/44712112.png" >
-    <Icon icon="code"  iconType="solid"/>Product Lead @ Chainstack
+  <Card title="Kirill Balakhonov">
+    <img src="/images/docs/u/44712112.png" alt="Kirill Balakhonov" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/> BUIDLs on Ethereum and Graph protocol
+    <Icon icon="code" iconType="solid" /> Product Lead @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> BUIDLs on Ethereum and Graph protocol
+    <br /><Icon icon="laptop" iconType="solid" /> Majored in Data Science and Product Management
 
-    <Icon icon="laptop"  iconType="solid"/> Majored in Data Science and Product Management
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/balakhonoff)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/balakhonoff)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/kirill-balakhonov/)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/balakhonoff" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/balakhonoff" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/kirill-balakhonov/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

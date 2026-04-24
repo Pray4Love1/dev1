@@ -1,0 +1,213 @@
+---
+title: "Solana: Durable nonces for offline signing"
+description: "Use Solana durable nonces for offline signing, delayed submission, and multi-sig workflows that keep transactions valid beyond the blockhash window."
+---
+
+**TLDR:**
+* Normal Solana transactions expire after ~80 seconds (150 slots) because they reference a recent blockhash.
+* Durable nonces replace the recent blockhash with a stored nonce value, removing the expiry window entirely.
+* The nonce must be advanced as the first instruction in the transaction.
+* This enables offline signing, scheduled transactions, and multi-party approval flows.
+
+## The problem: blockhash expiry
+
+Every Solana transaction includes a `recentBlockhash` — a reference to a recent block that acts as a timestamp and replay-prevention mechanism. If the transaction is not confirmed within ~150 slots (~80 seconds), it expires and is dropped.
+
+This is a problem when:
+* **Offline signing** — the signer is air-gapped and can't access the network in real time
+* **Multi-sig approval** — multiple parties need to sign, which takes longer than 80 seconds
+* **Scheduled execution** — you want to build a transaction now and submit it later
+* **Custodial workflows** — approval chains in enterprise systems
+
+## How durable nonces work
+
+A nonce account is a special System Program account that stores:
+* **authority** — the pubkey authorized to advance the nonce
+* **durable nonce** — a hash value derived from a recent blockhash
+* **lamports per signature** — the fee rate when the nonce was last advanced
+
+Instead of a recent blockhash, the transaction uses the nonce value. The nonce does not expire — it stays valid until someone advances it.
+
+The lifecycle:
+1. Create and initialize a nonce account
+2. Build the transaction with `AdvanceNonceAccount` as the **first instruction** and the nonce value as the `recentBlockhash`
+3. Sign the transaction (can be done offline, days or weeks later)
+4. Submit when ready — the nonce is advanced atomically, preventing replay
+
+<Warning>
+The `AdvanceNonceAccount` instruction **must** be the first instruction in the transaction. If it's not at index 0, the transaction is processed as a regular (non-nonce) transaction and will fail if the blockhash is stale.
+</Warning>
+
+<Check>
+### Get your own node endpoint today
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Prerequisites
+
+```bash
+npm install @solana/web3.js dotenv
+```
+
+## Create a nonce account
+
+<CodeGroup>
+```typescript TypeScript
+import {
+  Connection,
+  Keypair,
+  NONCE_ACCOUNT_LENGTH,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+} from "@solana/web3.js";
+import bs58 from "bs58";
+import "dotenv/config";
+
+const connection = new Connection(process.env.SOLANA_RPC!);
+const payer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY!));
+const nonceKeypair = Keypair.generate();
+
+async function createNonceAccount() {
+  const lamports = await connection.getMinimumBalanceForRentExemption(
+    NONCE_ACCOUNT_LENGTH
+  );
+
+  const transaction = new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: payer.publicKey,
+      newAccountPubkey: nonceKeypair.publicKey,
+      lamports,
+      space: NONCE_ACCOUNT_LENGTH,
+      programId: SystemProgram.programId,
+    }),
+    SystemProgram.nonceInitialize({
+      noncePubkey: nonceKeypair.publicKey,
+      authorizedPubkey: payer.publicKey, // nonce authority
+    })
+  );
+
+  const sig = await sendAndConfirmTransaction(connection, transaction, [
+    payer,
+    nonceKeypair,
+  ]);
+  console.log("Nonce account:", nonceKeypair.publicKey.toBase58());
+  console.log("Transaction:", sig);
+
+  // Fetch the nonce value
+  const nonceAccount = await connection.getNonce(nonceKeypair.publicKey);
+  console.log("Nonce value:", nonceAccount?.nonce);
+}
+
+createNonceAccount();
+```
+</CodeGroup>
+
+## Build and sign a transaction with a durable nonce
+
+<CodeGroup>
+```typescript TypeScript
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  NonceAccount,
+} from "@solana/web3.js";
+import bs58 from "bs58";
+import "dotenv/config";
+
+const connection = new Connection(process.env.SOLANA_RPC!);
+const payer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY!));
+
+const NONCE_PUBKEY = new PublicKey("YOUR_NONCE_ACCOUNT_ADDRESS");
+
+async function buildNonceTransaction() {
+  // Fetch the current nonce value
+  const nonceAccountInfo = await connection.getAccountInfo(NONCE_PUBKEY);
+  const nonceAccount = NonceAccount.fromAccountData(nonceAccountInfo!.data);
+  const nonceValue = nonceAccount.nonce;
+
+  // Build the transaction — AdvanceNonceAccount MUST be the first instruction
+  const transaction = new Transaction();
+  transaction.recentBlockhash = nonceValue; // use nonce as blockhash
+  transaction.feePayer = payer.publicKey;
+
+  transaction.add(
+    // First instruction: advance the nonce
+    SystemProgram.nonceAdvance({
+      noncePubkey: NONCE_PUBKEY,
+      authorizedPubkey: payer.publicKey,
+    }),
+    // Your actual instruction(s)
+    SystemProgram.transfer({
+      fromPubkey: payer.publicKey,
+      toPubkey: payer.publicKey,
+      lamports: 1000,
+    })
+  );
+
+  // Sign — this can be done offline
+  transaction.sign(payer);
+
+  // Serialize for later submission
+  const serialized = transaction.serialize();
+  const base64Tx = serialized.toString("base64");
+  console.log("Signed transaction (base64):", base64Tx);
+  console.log("This transaction will not expire. Submit it whenever ready.");
+
+  return base64Tx;
+}
+
+buildNonceTransaction();
+```
+</CodeGroup>
+
+## Submit the transaction later
+
+<CodeGroup>
+```typescript TypeScript
+import { Connection, PublicKey } from "@solana/web3.js";
+import "dotenv/config";
+
+const connection = new Connection(process.env.SOLANA_RPC!);
+
+const NONCE_PUBKEY = new PublicKey("YOUR_NONCE_ACCOUNT_ADDRESS");
+
+async function submitNonceTransaction(base64Tx: string) {
+  const buffer = Buffer.from(base64Tx, "base64");
+
+  const sig = await connection.sendRawTransaction(buffer);
+  console.log("Submitted:", sig);
+
+  // For nonce transactions, use nonce-aware confirmation (not blockhash-based)
+  const confirmation = await connection.confirmTransaction({
+    signature: sig,
+    nonceAccountPubkey: NONCE_PUBKEY,
+    nonceValue: "THE_NONCE_VALUE_USED_IN_THE_TRANSACTION",
+    minContextSlot: 0,
+  });
+  console.log("Confirmed:", confirmation.value.err ? "FAILED" : "SUCCESS");
+}
+
+// Paste the base64 from the previous step
+submitNonceTransaction("YOUR_BASE64_TX_HERE");
+```
+</CodeGroup>
+
+## Failure behavior
+
+Understanding how nonce transactions fail is important:
+
+* **Validation failure** (nonce already used, authority not signed, account not found) — the entire transaction is dropped. No fees collected, no state changes.
+* **Execution failure** (an instruction returns an error after validation passes) — the nonce is still advanced and fees are still collected. This prevents replay while ensuring the validator is compensated.
+
+## Additional resources
+
+* [How to handle the transaction expiry error](/docs/solana-how-to-handle-the-transaction-expiry-error) — retry logic for standard (non-nonce) transactions
+* [Solana durable nonces documentation](https://solana.com/docs/core/transactions/durable-nonces)
+* [sendTransaction](/reference/solana-sendtransaction) — submit the serialized nonce transaction

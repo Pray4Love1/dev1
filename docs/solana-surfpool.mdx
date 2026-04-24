@@ -1,0 +1,339 @@
+---
+title: "Solana: Surfpool quick-start"
+description: "Run a local Solana network with real mainnet state in milliseconds using Surfpool — copy-on-read fork, surfnet cheatcodes, and test-validator compatibility."
+---
+
+**TLDR:**
+* Surfpool is a local Solana network with **real mainnet state on demand** — a copy-on-read fork means any account you touch is lazy-fetched from mainnet, no snapshot dumps required.
+* Anchor v1.0.0 (2026-04-02) makes Surfpool the **default validator** for `anchor test` and `anchor localnet`. If you ran `anchor init` today, your `Anchor.toml` already has a `[surfpool]` section — but you still need to install the `surfpool` binary separately (see install below).
+* It exposes a full Solana JSON-RPC server and adds **26 `surfnet_*` cheatcode methods** — set any account, mint any token, time-travel, pause the clock, profile any transaction.
+* Internally it wraps [LiteSVM](/docs/solana-litesvm-testing) for execution, so it boots in sub-second time and runs on a Raspberry Pi. Self-description: *"Surfpool is to Solana what Anvil is to Ethereum."*
+* All commands and cheatcode signatures in this guide are verified against [txtx/surfpool v1.1.2](https://github.com/txtx/surfpool/releases/tag/v1.1.2) as of April 2026.
+
+## Where Surfpool fits
+
+Solana's modern testing pyramid trades fidelity for speed. Surfpool owns the **integration** tier — the layer above pure unit testing, the layer below a real testnet.
+
+| Tier | Tool | What you get | What you give up |
+|---|---|---|---|
+| Unit (single instruction) | [Mollusk](https://github.com/anza-xyz/mollusk) | CU-accurate benchmarking, no bank state | No sysvars, no CPI across programs |
+| Unit (multi-instruction) | [LiteSVM](/docs/solana-litesvm-testing) | Full bank, sysvars, CPI, fastest iteration | No RPC, no network effects, no mainnet state |
+| **Integration** | **Surfpool** | **Full RPC, mainnet fork, cheatcodes** | **No MEV/contention simulation, single validator only** |
+| End-to-end | Devnet / mainnet | Real network | Slow, flaky, real money |
+
+Surfpool is not a replacement for LiteSVM — it wraps it. Reach for LiteSVM when you want to hammer pure program logic in a tight red-green loop. Reach for Surfpool when you need a real RPC endpoint, real mainnet account state, or the full Solana JSON-RPC surface your client SDK expects.
+
+### What Surfpool replaces
+
+| Incumbent | How Surfpool compares |
+|---|---|
+| `solana-test-validator` | **Drop-in replacement.** Full RPC compatibility, but boots in sub-second time and can fork any mainnet account on demand. Works on a Raspberry Pi. |
+| Manual `--clone` of mainnet accounts | No pre-dumping. Call any RPC method that touches a mainnet address — Surfpool fetches the account the first time you ask for it and caches it locally. |
+
+## Install
+
+The installer script is the recommended path:
+
+```bash
+curl -sL https://run.surfpool.run/ | bash
+surfpool --version
+```
+
+Alternatives:
+
+<CodeGroup>
+
+```bash cargo
+cargo install surfpool-cli
+```
+
+```bash docker
+docker run --rm surfpool/surfpool --version
+```
+
+```bash from-source
+git clone https://github.com/txtx/surfpool.git
+cd surfpool
+cargo surfpool-install
+```
+
+</CodeGroup>
+
+<Warning>
+**Avoid the Linux snap.** Snapcraft's `surfpool` package lags ~6 months behind GitHub (v0.9.5 vs v1.1.2 at time of writing). The installer script and `cargo install surfpool-cli` always give you the latest release.
+</Warning>
+
+<Warning>
+**Windows + Docker Studio unreachable.** Surfpool Studio binds to `0.0.0.0` inside the container and the browser cannot reach it in some Windows setups ([issue #616](https://github.com/txtx/surfpool/issues/616), open). Native WSL2 works; pure Docker Desktop on Windows does not.
+</Warning>
+
+## First run
+
+```bash
+surfpool start
+```
+
+By default this:
+
+- Starts a JSON-RPC server on `127.0.0.1:8899` (same as `solana-test-validator`)
+- Starts a WebSocket server on `127.0.0.1:8900`
+- Opens **Surfpool Studio** (a local dashboard) on a browser port
+- Enters an interactive TUI showing block production, transaction throughput, and account activity
+
+Pass `--no-tui` to stream logs instead of the dashboard, or `--no-studio` if you don't want the browser UI.
+
+Point any Solana tool at the local endpoint — it speaks standard Solana RPC:
+
+```bash
+solana config set -u http://127.0.0.1:8899
+solana balance
+```
+
+## Fork mainnet with Chainstack
+
+The killer feature is **copy-on-read mainnet fork**. Any account you read is fetched from the datasource the first time you touch it, cached locally, and treated as local state from then on.
+
+```bash
+surfpool start \
+  --rpc-url https://solana-mainnet.core.chainstack.com/YOUR_KEY
+```
+
+Now local RPC calls see real mainnet state:
+
+```bash
+# USDC mint is real — Surfpool fetched it the moment you asked.
+solana account EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+
+# Jupiter aggregator program too.
+solana account JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4
+```
+
+You can also pre-airdrop SOL to arbitrary pubkeys at boot:
+
+```bash
+surfpool start \
+  --rpc-url https://solana-mainnet.core.chainstack.com/YOUR_KEY \
+  --airdrop 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM \
+  --airdrop-amount 1000000000
+```
+
+<Note>
+The `SURFPOOL_DATASOURCE_RPC_URL` environment variable is equivalent to `--rpc-url`. Set it once in your shell profile to avoid retyping the endpoint.
+</Note>
+
+## Cheatcodes: 26 `surfnet_*` RPC methods
+
+Surfpool's JSON-RPC server accepts all standard Solana methods (`getAccountInfo`, `sendTransaction`, etc.) plus 26 `surfnet_*` extensions that let you mutate local state in ways the real network won't allow. Complete list, verified from [source](https://github.com/txtx/surfpool/blob/v1.1.2/crates/core/src/rpc/surfnet_cheatcodes.rs):
+
+**Accounts:** `setAccount`, `setTokenAccount`, `cloneProgramAccount`, `resetAccount`, `offlineAccount`, `setSupply`, `setProgramAuthority`, `writeProgram`
+**Transaction profiling:** `profileTransaction`, `getTransactionProfile`, `getProfileResultsByTag`
+**IDL:** `registerIdl`, `getActiveIdl`
+**Clock:** `timeTravel`, `pauseClock`, `resumeClock`
+**Network:** `resetNetwork`, `exportSnapshot`, `getSurfnetInfo`, `getLocalSignatures`
+**Account streaming:** `streamAccount`, `streamAccounts`, `getStreamedAccounts`
+**Cheatcode control:** `enableCheatcode`, `disableCheatcode`
+**Scenarios:** `registerScenario`
+
+Four worked examples below cover the ones you will reach for on day one.
+
+### Set any account
+
+Overwrite any on-chain account with arbitrary lamports, data, and owner. The `AccountUpdate` struct is all-optional — send only the fields you want to change.
+
+```bash
+curl -s http://127.0.0.1:8899 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "surfnet_setAccount",
+    "params": [
+      "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+      {
+        "lamports": 5000000000,
+        "owner": "11111111111111111111111111111111"
+      }
+    ]
+  }'
+```
+
+The `data` field, if provided, takes a **hex-encoded** byte string — despite what some documentation suggests, the v1.1.2 implementation only accepts hex. Sending base64 or base58 returns `Invalid hex data provided`. Omit the field to leave data untouched, or pass `"data": ""` to clear it.
+
+### Mint tokens to any wallet (no authority required)
+
+The cheatcode that saves the most time in DeFi tests. Give any wallet any token balance without caring about mint authority.
+
+```bash
+curl -s http://127.0.0.1:8899 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "surfnet_setTokenAccount",
+    "params": [
+      "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+      "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      { "amount": 1000000000, "state": "initialized" }
+    ]
+  }'
+```
+
+After this call, the owner has 1,000 USDC (6 decimals) on the local network. The mint's real authority is irrelevant — Surfpool writes the token account directly.
+
+<Note>
+Include `"state": "initialized"` or the newly-created token account is usable as an address but reports a zero balance. This is a quiet footgun — the cheatcode succeeds either way.
+</Note>
+
+### Time travel
+
+Advance the clock to any slot, epoch, or unix timestamp. Useful for vesting, auctions, staking warmup/cooldown.
+
+```bash
+curl -s http://127.0.0.1:8899 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "surfnet_timeTravel",
+    "params": [{ "absoluteTimestamp": 2000000000000 }]
+  }'
+```
+
+<Warning>
+**`absoluteTimestamp` is milliseconds, not seconds.** Pass `Date.now() + delta_ms` or the equivalent. Supplying a seconds-based unix timestamp silently fails with `Cannot travel to past timestamp` because Surfpool interprets it as far earlier than the current simulated clock.
+</Warning>
+
+Parameter shape also accepts `{ "absoluteSlot": <n> }` or `{ "absoluteEpoch": <n> }`. Slot and epoch are absolute values — they must be strictly greater than the current ones. Pair with `surfnet_pauseClock` / `surfnet_resumeClock` to freeze block production.
+
+### Profile a transaction
+
+`surfnet_profileTransaction` executes the transaction against a temporary state snapshot — the execution is real, but state changes are **not committed** to the local network. It captures pre/post account snapshots and per-instruction CU metrics for analysis.
+
+```bash
+curl -s http://127.0.0.1:8899 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "surfnet_profileTransaction",
+    "params": [
+      "<base64-encoded-signed-transaction>",
+      "swap-v0-baseline"
+    ]
+  }'
+```
+
+The response contains every account the instruction touched, pre/post lamport + data snapshots under `instructionProfiles`, and a unique `key` UUID. The second positional parameter is an optional tag string — not a config object. Call `surfnet_getProfileResultsByTag` later to compare runs that share a tag.
+
+## Anchor integration
+
+Anchor v1.0.0 made Surfpool the default test validator (PR [#4106](https://github.com/solana-foundation/anchor/pull/4106)). A fresh `anchor init` scaffolds a `[surfpool]` section in `Anchor.toml`:
+
+```toml
+[surfpool]
+startup_wait = 5000
+shutdown_wait = 2000
+rpc_port = 8899
+ws_port = 8900
+online = true
+datasource_rpc_url = "https://solana-mainnet.core.chainstack.com/YOUR_KEY"
+airdrop_addresses = ["9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"]
+block_production_mode = "clock"
+slot_time = 400
+```
+
+<Warning>
+**`online = true` is required for mainnet fork to activate.** Anchor invokes Surfpool in offline mode by default. If your tests fail with `AccountNotFound` for mainnet addresses you expected to exist, set `online = true` and provide a `datasource_rpc_url`. This is the single most common footgun, by design — Anchor optimizes CI speed, you opt into network fetches.
+</Warning>
+
+Run the full suite:
+
+```bash
+anchor test
+```
+
+To fall back to the legacy `solana-test-validator`:
+
+```bash
+anchor test --validator legacy
+```
+
+### Migrating from `[test.validator.clone]`
+
+Legacy Anchor projects pre-dump mainnet accounts via the `[test.validator.clone]` section. Surfpool makes that unnecessary — lazy fetch replaces pre-cloning. The old pattern:
+
+```toml
+# Pre-v1.0 Anchor.toml
+[test.validator]
+url = "https://api.mainnet-beta.solana.com"
+
+[[test.validator.clone]]
+address = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
+```
+
+Becomes:
+
+```toml
+[surfpool]
+online = true
+datasource_rpc_url = "https://solana-mainnet.core.chainstack.com/YOUR_KEY"
+# No clone list — any account you touch is fetched on demand.
+```
+
+If you still want to pre-warm specific accounts at boot (e.g., to avoid a first-call latency spike in benchmarks), call `surfnet_setAccount` from a test-setup step after fetching the bytes from mainnet RPC yourself. `surfnet_cloneProgramAccount` is not a general warmer — its signature is `(source_program_id, destination_program_id)` and it only copies executable program accounts.
+
+## Pitfalls
+
+### Offline mode is the default
+
+As above — `online = false` in `Anchor.toml` means no mainnet fetch, no matter what `datasource_rpc_url` you set. This trips up everyone migrating from a manual `solana-test-validator --clone` workflow.
+
+### No transaction contention or MEV simulation
+
+Every transaction Surfpool sees succeeds in priority order as submitted. There is no priority-fee reordering, no sandwich attack simulation, no write-lock contention ([issue #529](https://github.com/txtx/surfpool/issues/529), open). For MEV-sensitive logic, test on a real cluster or use dedicated MEV simulation tooling.
+
+### Single validator only
+
+No multi-node support ([issue #448](https://github.com/txtx/surfpool/issues/448), open). Tests that need cross-validator behavior (e.g., leader rotation, gossip-dependent protocols) need a real cluster.
+
+### CI version pinning
+
+The installer script always installs the latest version. Anchor's `SURFPOOL_CLI_VERSION` env var only busts caches — it doesn't pin ([issue #4160](https://github.com/solana-foundation/anchor/issues/4160), closed as resolved in Anchor v1.0, though version pinning for the installer itself is still manual). For reproducible CI, pin to a specific `cargo install surfpool-cli --version` or a pinned Docker tag.
+
+### Snap package is stale
+
+`sudo snap install surfpool` fetches v0.9.5 (2025-07-21) — roughly 6 months behind GitHub. Use the installer script or cargo.
+
+### `anchor deploy` cluster-node timeout
+
+Running `anchor deploy` against a running Surfpool sometimes fails with `Failed to find any cluster node info for upcoming leaders, timeout: 20s` ([Solana SE #23339](https://solana.stackexchange.com/questions/23339)). The validator is up but has not emitted leader-schedule info yet. Wait a few slots after `surfpool start` before invoking `anchor deploy`, or prefer `anchor test` (which waits for Surfpool to be ready before deploying).
+
+### No MCP-less non-interactive mode
+
+`surfpool start` always boots with the TUI unless you pass `--no-tui`. For CI, always combine `--no-tui --no-studio`.
+
+## When not to use Surfpool
+
+- You need MEV or priority-fee contention simulation. Use a real cluster.
+- You need multi-validator / leader-rotation tests. Use a real cluster.
+- You need reproducible CI with a locked version before installer pinning ships. Use a Docker tag or pinned `cargo install`.
+- You are doing pure unit testing and don't need a real RPC. [LiteSVM](/docs/solana-litesvm-testing) is 10× faster per test.
+- You want CU-accurate single-instruction benchmarking. [Mollusk](https://github.com/anza-xyz/mollusk) is purpose-built.
+
+## See also
+
+- [Solana: Fast unit testing with LiteSVM](/docs/solana-litesvm-testing) — the unit tier below Surfpool; Surfpool wraps LiteSVM internally.
+- [Solana: Anchor development](/docs/solana-anchor-development) — the framework Surfpool is now the default test backend for.
+- [Surfpool docs](https://docs.surfpool.run) — authoritative CLI, RPC, cheatcode reference.
+- [Surfpool cheatcodes reference](https://docs.surfpool.run/rpc/cheatcodes) — full JSON-RPC signature for every `surfnet_*` method.
+- [Anchor v1.0.0 release notes](https://github.com/solana-foundation/anchor/releases/tag/v1.0.0) — the PR that made Surfpool default.
+- [Helius: Introducing Surfpool](https://www.helius.dev/blog/surfpool) — conceptual intro and lazy-fork explanation.
+- [Blueshift: Surfpool 101](https://learn.blueshift.gg/en/courses/testing-with-surfpool/surfpool-101) — interactive course.
+
+## Reference repos
+
+These are the source repositories we worked against while writing this guide. They stay closer to reality than docs — check them first when something here looks off.
+
+- [txtx/surfpool](https://github.com/txtx/surfpool) — Surfpool source; `crates/core/src/rpc/surfnet_cheatcodes.rs` is the authoritative cheatcode surface — check here when signatures look off
+- [solana-foundation/anchor](https://github.com/solana-foundation/anchor) — Anchor 1.0 is Surfpool-native; `[surfpool]` section semantics and `online = true` behavior live here
+- [anza-xyz/mollusk](https://github.com/anza-xyz/mollusk) — alternative lightweight runtime referenced when Surfpool's overlay model isn't the right fit

@@ -1,0 +1,28 @@
+---
+title: getTransactionCount | Solana
+openapi: /openapi/solana_node_api/getTransactionCount.json POST /9de47db917d4f69168e3fed02217d15b
+---
+
+The Solana `getTransactionCount` method returns the total number of transactions that the node has processed since genesis.
+
+This method is useful for monitoring network activity and throughput over time.
+
+<Check>
+**Get your own node endpoint today**
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Parameters
+
+1. `commitment` (string, optional) — the commitment level. Values: `processed`, `confirmed`, `finalized`.
+
+## Response
+
+* `result` (integer) — the total number of transactions processed by the node.
+
+## Use case
+
+A common use case for `getTransactionCount` is in network monitoring dashboards that track Solana's throughput over time. By polling this method at regular intervals, you can calculate the transactions-per-second rate and detect periods of high or low network activity.

@@ -1,0 +1,177 @@
+---
+title: "Solana: Understanding the compute budget"
+description: "How Solana compute units work — default allocations, SetComputeUnitLimit and SetComputeUnitPrice instructions, and optimizing compute for lower fees."
+---
+
+**TLDR:**
+* Every Solana instruction gets a default compute unit (CU) allocation. Non-builtin programs get 200,000 CUs; builtin programs (System, Stake, Vote) get 3,000 CUs.
+* The transaction-level cap is 1,400,000 CUs.
+* Priority fees are calculated from the **requested** CU limit, not actual usage — overspending on CUs wastes money.
+* Use `simulateTransaction` to measure actual CU usage, then set `SetComputeUnitLimit` to the measured value + 10% margin.
+
+## How compute units work
+
+Every transaction on Solana consumes compute units (CUs). CUs are the Solana equivalent of gas — they measure the computational cost of executing instructions. The runtime enforces a CU budget per transaction; if the transaction exceeds it, execution aborts with `ComputationalBudgetExceeded`.
+
+### Default allocation
+
+When you don't include a `SetComputeUnitLimit` instruction, the default budget is calculated based on instruction types:
+
+```
+default_cu_limit = (num_builtin_instructions × 3,000)
+                 + (num_non_builtin_instructions × 200,000)
+```
+
+* **Builtin instructions** (System Program, Stake, Vote, Compute Budget) — 3,000 CUs each per [SIMD-0170](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md)
+* **Non-builtin instructions** (your program, Token Program, any SBF-deployed program) — 200,000 CUs each
+* The result is clamped to the transaction cap of **1,400,000 CUs**
+
+A typical transaction with 1 SystemProgram transfer + 1 ComputeBudget instruction + 1 SPL Token instruction gets: `(2 × 3,000) + (1 × 200,000) = 206,000 CUs` as the default budget.
+
+### Why defaults are wasteful
+
+Consider a simple SOL transfer with a priority fee:
+* 2 builtin instructions (transfer + SetComputeUnitPrice) = 6,000 CUs allocated
+* But the actual transfer uses ~450 CUs
+
+If you set a priority fee of 10,000 micro-lamports per CU, the fee on 6,000 CUs is 60,000,000 micro-lamports (0.06 lamports). If you set `SetComputeUnitLimit` to 500 CUs (enough for the transfer + margin), the fee drops to 5,000,000 micro-lamports — a 12x reduction.
+
+<Warning>
+The priority fee is determined by the **requested** compute unit limit, not the actual number of compute units used. If you set a CU limit that is too high or use the default, you pay for unused compute.
+</Warning>
+
+<Check>
+### Get your own node endpoint today
+
+[Start for free](https://console.chainstack.com/) and get your app to production levels immediately. No credit card required.
+
+You can sign up with your GitHub, X, Google, or Microsoft account.
+</Check>
+
+## Compute Budget Program instructions
+
+The Compute Budget Program (`ComputeBudget111111111111111111111111111111`) has 4 instructions:
+
+| Instruction | Parameter | Type | Description |
+| ----------- | --------- | ---- | ----------- |
+| `SetComputeUnitLimit` | `units` | u32 | Max CUs the transaction may consume |
+| `SetComputeUnitPrice` | `micro_lamports` | u64 | CU price in micro-lamports (priority fee) |
+| `RequestHeapFrame` | `bytes` | u32 | Heap size for each program (32K–256K, multiple of 1024) |
+| `SetLoadedAccountsDataSizeLimit` | `bytes` | u32 | Max total bytes of account data the transaction may load |
+
+**Rules:**
+* Only **one** of each instruction variant is allowed per transaction. Duplicates cause a `DuplicateInstruction` error and the transaction fails.
+* `SetComputeUnitLimit` accepts any u32 but is clamped to 1,400,000.
+* `SetComputeUnitPrice` accepts any u64 (0 to u64::MAX).
+
+## Optimizing your compute budget
+
+The optimal workflow is:
+
+1. **Simulate** your transaction to measure actual CU consumption
+2. **Add a margin** (10–20%) to the simulated value
+3. **Set the CU limit** with `SetComputeUnitLimit`
+4. **Set the CU price** with `SetComputeUnitPrice` based on recent priority fees
+
+### Step 1: Simulate and measure
+
+<CodeGroup>
+```typescript TypeScript
+import {
+  Connection,
+  Keypair,
+  SystemProgram,
+  TransactionMessage,
+  VersionedTransaction,
+  ComputeBudgetProgram,
+} from "@solana/web3.js";
+import bs58 from "bs58";
+import "dotenv/config";
+
+const connection = new Connection(process.env.SOLANA_RPC!);
+const payer = Keypair.fromSecretKey(bs58.decode(process.env.PRIVATE_KEY!));
+
+async function optimizeComputeBudget() {
+  const latestBlockhash = await connection.getLatestBlockhash();
+
+  // Your transaction instructions (without CU limit set yet)
+  const instructions = [
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 }),
+    SystemProgram.transfer({
+      fromPubkey: payer.publicKey,
+      toPubkey: payer.publicKey,
+      lamports: 1000,
+    }),
+  ];
+
+  // Build and simulate WITHOUT SetComputeUnitLimit
+  const message = new TransactionMessage({
+    payerKey: payer.publicKey,
+    recentBlockhash: latestBlockhash.blockhash,
+    instructions,
+  }).compileToV0Message();
+
+  const transaction = new VersionedTransaction(message);
+  transaction.sign([payer]);
+
+  const simulation = await connection.simulateTransaction(transaction);
+  const unitsConsumed = simulation.value.unitsConsumed || 0;
+  console.log("Simulated CUs:", unitsConsumed);
+
+  // Add 10% margin
+  const cuLimit = Math.ceil(unitsConsumed * 1.1);
+  console.log("Setting CU limit to:", cuLimit);
+
+  // Rebuild with the optimized CU limit
+  const optimizedInstructions = [
+    ComputeBudgetProgram.setComputeUnitLimit({ units: cuLimit }),
+    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 }),
+    SystemProgram.transfer({
+      fromPubkey: payer.publicKey,
+      toPubkey: payer.publicKey,
+      lamports: 1000,
+    }),
+  ];
+
+  const optimizedMessage = new TransactionMessage({
+    payerKey: payer.publicKey,
+    recentBlockhash: latestBlockhash.blockhash,
+    instructions: optimizedInstructions,
+  }).compileToV0Message();
+
+  const optimizedTx = new VersionedTransaction(optimizedMessage);
+  optimizedTx.sign([payer]);
+
+  const sig = await connection.sendTransaction(optimizedTx);
+  console.log("Transaction:", sig);
+}
+
+optimizeComputeBudget();
+```
+</CodeGroup>
+
+## Block-level limits
+
+The Solana scheduler imposes block-level CU caps that affect how many transactions fit per block:
+
+* **48,000,000 CUs per block** — total compute budget across all transactions
+* **12,000,000 CUs per account per block** — write-lock limit per account
+
+These block limits are why tight CU budgets matter: a transaction requesting 200,000 CUs that only uses 500 blocks other transactions from fitting in the same block, reducing overall throughput.
+
+## Priority fee calculation
+
+The total priority fee for a transaction:
+
+```
+priority_fee = ceil(SetComputeUnitPrice × SetComputeUnitLimit / 1,000,000)
+```
+
+Where `SetComputeUnitPrice` is in micro-lamports and the result is in lamports. The division uses ceiling — non-integer results round up. The fee is **always based on the requested limit**, not actual usage.
+
+## Additional resources
+
+* [Priority fees for faster transactions](/docs/solana-how-to-priority-fees-faster-transactions) — practical guide to setting priority fees
+* [Estimate priority fees with getRecentPrioritizationFees](/docs/solana-estimate-priority-fees-getrecentprioritizationfees) — dynamic fee estimation
+* [Analyzing adjacent transactions for priority fees](/docs/solana-analyzing-adjacent-transactions-for-priority-fees) — advanced fee analysis
+* [simulateTransaction](/reference/solana-simulatetransaction) — simulate to measure CU usage

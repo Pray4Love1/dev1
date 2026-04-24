@@ -1,5 +1,6 @@
 ---
 title: "Solana: Transferring SPL tokens in TypeScript"
+description: Transfer SPL tokens on Solana using TypeScript with the solana-web3.js and spl-token libraries through a Chainstack node for reliable token delivery.
 ---
 
 **TLDR:**
@@ -32,7 +33,7 @@ Before diving into the process of transferring SPL tokens on the Solana blockcha
 
 <CardGroup>
   <Card title="Sign up with Chainstack" href="https://console.chainstack.com/user/account/create" icon="angle-right" horizontal />
-  <Card title="Deploy a node" href="/docs/manage-your-networks#join-a-public-network" icon="angle-right" horizontal />
+  <Card title="Deploy a node" href="/docs/manage-your-networks" icon="angle-right" horizontal />
   <Card title="View node access and credentials" href="/docs/manage-your-node#view-node-access-and-credentials" icon="angle-right" horizontal />
 </CardGroup>
 
@@ -264,7 +265,7 @@ Now that we have set up the project, installed the required packages, and config
         "CzNGm14nMopjGYyycMbWqEF2e1aEHcJLKk2CHw9BiZwC"
       );
 
-      // The SLP token being transferred, this is the address for USDC
+      // The SPL token being transferred, this is the address for USDC
       const mintAddress = new PublicKey(
         "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
       );
@@ -382,7 +383,7 @@ Let's break down the code and understand how it works:
 
 ### Running the script
 
-Now that we have the code and understand how it works, it’s time to send some SPL tokens. The script, by default, transfers 1 USDC to the destination wallet. You can edit the destination, token address, and amount from this portion of the code in the `main` function:
+Now that we have the code and understand how it works, it’s time to send some SPL tokens. The script, by default, transfers 0.01 USDC to the destination wallet. You can edit the destination, token address, and amount from this portion of the code in the `main` function:
 
 <CodeGroup>
   ```typescript TypeScript
@@ -497,18 +498,17 @@ Following this tutorial, you have gained hands-on experience working with the So
 Remember, this tutorial serves as a starting point, and numerous possibilities exist to expand upon this foundation. You can enhance the script with additional features, integrate it into larger applications, or explore other aspects of Solana development.
 
 <CardGroup>
-  <Card title="Ake" img="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Director of Developer Experience @ Chainstack
+  <Card title="Ake">
+    <img src="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg" alt="Ake" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/>  Talk to me all things Web3
+    <Icon icon="code" iconType="solid" /> Director of Developer Experience @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> Talk to me all things Web3
+    <br />20 years in technology | 8+ years in Web3 full time years experience
 
-    20 years in technology | 8+ years in Web3 full time years experience
-
-    Trusted advisor helping developers navigate the complexities of blockchain infrastructure
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/akegaviar/)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/akegaviar)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/ake/)
-    [<Icon icon="warpcast"  iconType="brands"/>](https://warpcast.com/ake)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/akegaviar/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/akegaviar" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/ake/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

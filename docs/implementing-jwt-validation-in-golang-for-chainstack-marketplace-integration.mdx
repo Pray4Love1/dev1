@@ -1,5 +1,6 @@
 ---
-title: "Implementing JWT validation in Golang for Chainstack marketplace integration"
+title: JWT validation in Go for Chainstack Marketplace
+description: Implement JWT token validation in Go for Chainstack Marketplace integration, covering RSA key retrieval, claims verification, and middleware setup.
 ---
 
 **TLDR:**
@@ -92,7 +93,7 @@ Using a `.env` file lets you separate your configuration variables from your cod
 
 ## The Chainstack Marketplace authentication flow
 
-Before diving into the code, it's important to understand the authentication flow in the Chainstack Marketplace. The user who has purchased the integration with your application will authorize requests using their Chainstack API key. Note that this API key is not the JWT token you need to validate. To validate the API key, you must call the [Retrieve Application Token](/reference/chainstack-platform-api-retrieve-token) API.
+Before diving into the code, it's important to understand the authentication flow in the Chainstack Marketplace. The user who has purchased the integration with your application will authorize requests using their Chainstack API key. Note that this API key is not the JWT token you need to validate. To validate the API key, you must call the [Retrieve Application Token](https://api.chainstack.com/reference/#operation/retrieveToken) API.
 
 Here's an example API call to retrieve the validated JWT:
 
@@ -305,7 +306,7 @@ This is the entry point of the program. It orchestrates the other functions:
 
 ### How to run the code
 
-1. **Validate a JWT**. To validate a JWT, you'll need an authorized API key. Use the [appropriate endpoint](/reference/chainstack-platform-api-retrieve-token) to validate the API key and obtain a JWT. Note that in a production setting, you'll either need to require users to validate and send the JWT first or implement a flow in your app that validates the API key dynamically.
+1. **Validate a JWT**. To validate a JWT, you'll need an authorized API key. Use the [appropriate endpoint](https://api.chainstack.com/reference/#operation/retrieveToken) to validate the API key and obtain a JWT. Note that in a production setting, you'll either need to require users to validate and send the JWT first or implement a flow in your app that validates the API key dynamically.
 
 2. **Add JWT and audience to the script**. Once you've validated the JWT, add it to the corresponding variable inside the `main` function, along with your expected audience.
 
@@ -359,15 +360,17 @@ Remember, security is not just a feature but a necessity. Validating JWTs is a f
 ### About the author
 
 <CardGroup>
-  <Card title="Davide Zambiasi" img="/images/docs/profile_images/1533079085001363457/1VvXp1m0_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Developer Advocate @ Chainstack
+  <Card title="Davide Zambiasi">
+    <img src="/images/docs/profile_images/1533079085001363457/1VvXp1m0_400x400.jpg" alt="Davide Zambiasi" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/> BUIDLs on EVM, The Graph protocol, and Starknet
+    <Icon icon="code" iconType="solid" /> Developer Advocate @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> BUIDLs on EVM, The Graph protocol, and Starknet
+    <br /><Icon icon="laptop" iconType="solid" /> Helping people understand Web3 and blockchain development
 
-    <Icon icon="laptop"  iconType="solid"/> Helping people understand Web3 and blockchain development
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/soos3d)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/web3Dav3)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/davide-zambiasi/)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/soos3d" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/web3Dav3" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/davide-zambiasi/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

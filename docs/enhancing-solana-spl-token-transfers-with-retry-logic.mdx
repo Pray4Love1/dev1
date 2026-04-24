@@ -1,5 +1,6 @@
 ---
 title: "Solana: Enhancing SPL token transfers with retry logic"
+description: Add retry logic to Solana SPL token transfers using transaction confirmation polling and exponential backoff for reliable token delivery on Chainstack.
 ---
 
 **TLDR:**
@@ -10,14 +11,14 @@ title: "Solana: Enhancing SPL token transfers with retry logic"
 
 ## Main article
 
-The [previous article](https://dash.readme.com/project/chainstack/v1.0/docs/transferring-spl-tokens-on-solana-typescript) explored transferring SPL tokens on the Solana blockchain using TypeScript. While the provided code successfully demonstrated the token transfer process, it lacked retry logic—a crucial aspect for handling potential failures and retrying failed transactions in blockchain applications.
+The [previous article](/docs/transferring-spl-tokens-on-solana-typescript) explored transferring SPL tokens on the Solana blockchain using TypeScript. While the provided code successfully demonstrated the token transfer process, it lacked retry logic—a crucial aspect for handling potential failures and retrying failed transactions in blockchain applications.
 
 Retry logic helps mitigate the impact of transient network issues or node overload by automatically retrying failed transactions multiple times. This approach increases the likelihood of successful execution, ensuring better reliability and improving the overall user experience.
 
 This guide will extend the existing codebase by adding a simple retry logic to the token transfer process. We will discuss why retries are needed, explore different error scenarios, and implement a straightforward retry mechanism. Incorporating retry logic will make our application more resilient to temporary network problems, laying the foundation for further improvements in robustness and performance.
 
 <Info>
-  Read [Transferring SPL tokens on Solana: A step-by-step TypeScript tutorial](https://dash.readme.com/project/chainstack/v1.0/docs/transferring-spl-tokens-on-solana-typescript) to find the full code base and learn how it works.
+  Read [Transferring SPL tokens on Solana: A step-by-step TypeScript tutorial](/docs/transferring-spl-tokens-on-solana-typescript) to find the full code base and learn how it works.
 </Info>
 
 ## Understanding the need for retry logic
@@ -336,18 +337,17 @@ In this article, we extend the functionality of our Solana SPL token transfer ap
 We started by understanding the importance of retry logic in blockchain applications, particularly in the Solana blockchain and the `TransactionExpiredBlockheightExceededError` context. We then implemented the retry logic by wrapping the transaction send logic in a loop with maximum retry attempts, handling different error types, introducing a delay or backoff strategy between retries, and logging retry attempts for better visibility.
 
 <CardGroup>
-  <Card title="Ake" img="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg">
-    <Icon icon="code"  iconType="solid"/>Director of Developer Experience @ Chainstack
+  <Card title="Ake">
+    <img src="/images/docs/profile_images/1719912994363326464/8_Bi4fdM_400x400.jpg" alt="Ake" style={{width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto'}} noZoom />
 
-    <Icon icon="screwdriver-wrench"  iconType="solid"/>  Talk to me all things Web3
+    <Icon icon="code" iconType="solid" /> Director of Developer Experience @ Chainstack
+    <br /><Icon icon="screwdriver-wrench" iconType="solid" /> Talk to me all things Web3
+    <br />20 years in technology | 8+ years in Web3 full time years experience
 
-    20 years in technology | 8+ years in Web3 full time years experience
-
-    Trusted advisor helping developers navigate the complexities of blockchain infrastructure
-
-    [<Icon icon="github"  iconType="brands"/>](https://github.com/akegaviar/)
-    [<Icon icon="twitter"  iconType="brands"/>](https://twitter.com/akegaviar)
-    [<Icon icon="linkedin"  iconType="brands"/>](https://www.linkedin.com/in/ake/)
-    [<Icon icon="warpcast"  iconType="brands"/>](https://warpcast.com/ake)
+    <div style={{display: "flex", justifyContent: "center", gap: "12px"}}>
+      <a href="https://github.com/akegaviar/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="github" iconType="brands" /></a>
+      <a href="https://twitter.com/akegaviar" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="twitter" iconType="brands" /></a>
+      <a href="https://www.linkedin.com/in/ake/" style={{textDecoration: "none", borderBottom: "none"}}><Icon icon="linkedin" iconType="brands" /></a>
+    </div>
   </Card>
 </CardGroup>

@@ -1,7 +1,21 @@
 ---
 title: "Work with Elastic Subgraphs"
-description: "Elastic Subgraphs is the Chainstack suite of tools that provides access to real-time and historical data from DeFi protocols. This data is crucial for monitoring and analyzing DeFi activities and making informed decisions within the DeFi space."
+description: Deploy elastic subgraphs on Chainstack for auto-scaling blockchain data indexing that handles traffic spikes without manual capacity configuration.
 ---
+
+<Warning>
+**Chainstack Subgraphs is transitioning to Ormi**
+
+Chainstack is sunsetting its Subgraphs service and partnering with [Ormi](https://ormilabs.com/), a next-generation subgraph indexer built for real-time production workloads, to support existing subgraphs. Your data and schemas remain unchanged—your only action is to swap the endpoint.
+
+- No new subgraphs after January 5, 2026
+- Service disabled on February 1, 2026
+- Ormi provides one free month (Feb 1 – March 1, 2026)
+
+For migration assistance, join the dedicated Telegram support group (check your email for the invitation).
+
+See the [Ormi–Chainstack transition guide](https://docs.ormilabs.com/subgraphs/tutorials/migrate-chainstack-subgraphs) for full details.
+</Warning>
 
 **TLDR:**
 
@@ -12,7 +26,7 @@ description: "Elastic Subgraphs is the Chainstack suite of tools that provides a
 ## Overview
 
 <Note>
-Elastic Subgraphs are available starting from the [paid plans](https://chainstack.com/pricing/) with the [pay-as-you-go](/docs/manage-your-billing#manage-the-pay-as-you-go-setting) setting enabled.
+Elastic Subgraphs are available starting from the [paid plans](https://chainstack.com/pricing/) with the [extra usage](/docs/manage-your-billing#manage-the-extra-usage-setting) setting enabled.
 </Note>
 
 DeFi protocols enable various financial services such as lending, borrowing, trading, and yield farming. Via Chainstack Elastic Subgraphs, you can access such protocols as Uniswap, SushiSwap, Lido, Aave, OpenSea, and more.

@@ -13,6 +13,8 @@ Hyperliquid state execution operates through two main components:
 - HyperCore — provides fully onchain perpetual futures and spot order books with one-block finality. HyperCore supports 200,000 orders per second, with throughput continuously improving through node software optimization.
 - HyperEVM — brings Ethereum-compatible smart contract functionality to Hyperliquid. This component makes HyperCore's liquidity and financial primitives available as permissionless building blocks for developers.
 
+Chainstack supports both HyperCore and HyperEVM. For the full list of methods and the available endpoints, see [Hyperliquid methods](/docs/hyperliquid-methods).
+
 <Check>
 ### Get your own node endpoint today
 
@@ -42,8 +44,16 @@ To use the Hyperliquid API, you need access to a Hyperliquid node endpoint.
 Follow these steps to sign up on Chainstack, deploy a Hyperliquid node, and find your endpoint credentials:
 
 1. [Sign up with Chainstack](https://console.chainstack.com/user/account/create).
-2. [Deploy a node](/docs/manage-your-networks#join-a-public-network).
+2. [Deploy a node](/docs/manage-your-networks).
 3. [View node access and credentials](/docs/manage-your-node#view-node-access-and-credentials).
 
 Now you are ready to connect to the Hyperliquid blockchain and use the Hyperliquid API to build trading applications.
+
+## Networks
+
+Chainstack supports both Hyperliquid mainnet and testnet with full and archive node modes, WebSocket connections, and debug & trace APIs.
+
+<Note>
+On testnet, archive data is available starting from block `34112653`. Queries for blocks before this height will not return historical state.
+</Note>
 
